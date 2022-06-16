@@ -1,0 +1,958 @@
+---
+title: "Estatística no R"
+author: "Maurício Bueno"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: no
+  word_document:
+    toc: yes
+editor_options:
+  chunk_output_type: console
+  markdown: 
+    wrap: sentence
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+```
+
+# Importação de banco de dados e ativação de pacotes
+
+```{r}
+library(tidyverse)
+library(psych)
+library(pander)
+
+dataset <- readRDS("dataset.rds")
+rwas <- readRDS("rwas.rds")
+big_five <- readRDS("big_five.rds")
+big_five_BR <- readRDS("big_five_BR.rds")
+```
+
+# Análises de associação entre variáveis
+
+Muitas vezes, o pesquisador está interessado no estudo ou análise de relações entre variáveis.
+Nesses casos, ele recorrerá a estatísticas como o teste de qui-quadrado (caso tenha variáveis do tipo nominal ou categórica), coeficiente de correlação de Pearson ou regressão linear quando as variáveis forem contínuas.
+
+## Testes de Qui-Quadrado
+
+O teste de qui-quadrado é uma medida de associação entre variáveis categóricas, das quais só temos a frequência de ocorrência.
+Existem três tipos de testes de qui-quadrado:
+
+-   de aderência: quando se deseja verificar as distribuições de probabilidades de cada categoria de uma variável em relação a um valor teórico esperado.
+
+-   de homogeneidade: quando se deseja verificar se as distribuições das categorias são as mesmas para diferentes subpopulações de interesse.
+
+-   de independência: verficiar se duas variáveis categóricas são independentes
+
+Neste caso, vamos fazer uma análise de qui-quadrado de independência, a mais comumumente utilizada, para verificar se há uma associação entre país e sexo dos participantes do banco de dados dataset.
+O primeiro passo para isso é montar uma tabela de contingência.
+
+### Tabela de Contingência
+
+Nesse caso, vamos usar a função da base `table()` para gerar uma tabela 2 x 3, duas linhas e três colunas, em que as linhas representarão os sexos masculino e feminino, e as colunas representarão os países: Brasil, Portugal e Espanha.
+
+```{r}
+tabcont_sex_country <- table(dataset$sex,dataset$country)
+
+```
+
+O próximo passo é realizar a análise de qui-quadrado em si.
+
+### Análise de qui-quadrado.
+
+```{r}
+# É bom salvá-la em um objeto porque tem mais informações do que as que são mostradas na análise.
+options(scipen = 999) # função para tirar a notação científica de potência.
+chi_sex_country <- chisq.test(tabcont_sex_country)
+
+# Pressuposto: frequências esperadas > 5
+###chi_sex_country$expected
+###round(chi_sex_country$expected,0)
+
+# Análise dos resíduos
+## Resíduo padronizado ou resíduo de Pearson
+###chi_sex_country$residuals
+
+## Resíduo padronizado ajustado (mais usado) - 
+### Estão padronizados em z. 
+### Portanto, valores > 1.96 ou < -1.96 são considerados valores significativos para p/ alfa de 5%
+### ou seja, cujos resíduos encontrados são maiores do que os esperados.
+###chi_sex_country$stdres
+
+# Alguns autores recomendam um ajuste na análise do resíduo em função do tamanho da tabela de contingência
+# Assim, novo_sig = 0,05/(n_linhas * n_colunas)
+# a nova formula para calcular o índice de significância é:
+new_alfa <- 0.05/(nrow(tabcont_sex_country)*ncol(tabcont_sex_country))
+
+# calcular os pontos de corte em z para o novo valor de alfa (new_alfa)
+###qnorm(0.05/2)       # valor de z correspondente a um alfa de 5%, que dá o 1,96
+###qnorm(new_alfa/2)   # z relativo ao new_alfa: > 2,64 ou < -2,64, para alfa=0,83%
+                    # Usar esse valor para avaliar os resíduso padr. ajustados
+                    # com o novo valor de z, os resultados continuam significativos.
+# uma opção seria calcular o p para todos os resíduos
+###options(scipen = 0)
+###2*(1-pnorm(abs(chi_sex_country$stdres)))
+
+# Tamanho do efeito
+# phi é usado para tabelas 2 x 2
+# V de Cramer é usado para tabelas maiores
+# usando a função cramer_v() do rstatix
+rstatix::cramer_v(tabcont_sex_country)
+
+# A interpretação do V de Cramer depende dos graus de liberdade do teste
+# gl = (linhas -1) * (colunas-1)
+# Messe caso gl=2 e o V de Cramer corresponde a um tamanho de efeito pequeno (Cohen, 1988).
+# O V de Cramer varia de 0 a 1. Valores baixos e altos correspondem a efeitos pequenos e grandes, respectivamente.
+
+# para calcular o phi (tamanho de efeito para tabelas 2 x 2)
+# phi(tabela_de_contingência)
+```
+
+Nesse caso, o valor de p foi igual a 3.003e-11 (lê-se 3.003 x 10^-11^).
+A interpretação do V de Cramer depende dos graus de liberdade empregada na análise.
+Como essa análise foi realizada sobre uma distribuição 2 x 3, o número de graus de liberdade é igual a 2 (gl = (linhas -1) \* (colunas-1)).
+
+```{r echo=FALSE}
+data.frame("Graus de Liberdade" = c(1,2,3),
+           Pequeno = c(0.1,0.07,0.06),
+           Médio = c(0.3,0.21,0.17),
+           Grande = c(0.5,0.35,0.29)) %>% pander()
+```
+
+Nesse caso, o valor de p foi menor que 0,05, indicando que há associação entre o sexo do participantes e o diagnóstico de TDAH.
+Essa associação diz que ser do sexo masculino aumenta as chances de receber uma diagnóstico de TDAH.
+No entanto, o tamanho do efeito foi pequeno.
+
+### Representação gráfica
+
+```{r}
+corrplot::corrplot(chi_sex_country$stdres,  # função para representação em cores
+                   is.corr = FALSE,         # não se trata de correlações
+                   method = "color",        # método para pintar o quadrado todo.
+                   tl.col = "black",        # textos na cor preta
+                   tl.srt = 0)              # angulação das colunas, 90 é vertical.
+
+ggplot(dataset, aes(x = country, fill = sex)) +
+  geom_bar(position = "fill") +
+  coord_flip() +
+  labs(title = "Proporção Sexo x País",
+       x = "País", y = "Proporção", fill = "Sex")
+```
+
+### Exercícios sobre qui-quadrado
+
+1.  Calcular o qui-quadrado para verificar as associações entre sexo e ansiedade (bai_class)
+
+2.  Calcular o qui-quadrado para verificar as associações entre sexo e depressão (bai_class)
+
+Dica: para que as categorias de ansiedade e depressão sejam mostradas em ordem crescente (mínima, leve, moderada, grave), é necessário informar o R disso por meio do argumento `levels`da função `factor`.
+
+```{r}
+
+# colocando as variáveis bdi_class e bai_class em ordem, usando o levels
+summary(dataset$country)
+summary(dataset$sex)
+summary(dataset$bdi_class)
+summary(dataset$bai_class)
+
+# padronizar a ordem dos níveis: minima, leve, moderada, grave.
+dataset$bdi_class <- factor(dataset$bdi_class,
+                            levels = c("minima",
+                                       "leve",
+                                       "moderada",
+                                       "grave"))
+
+dataset$bai_class <- factor(dataset$bai_class,
+                            levels = c("minima",
+                                       "leve",
+                                       "moderada",
+                                       "grave"))
+```
+
+## Coeficientes de correlação (Pearson, Spearman e Kendall)
+
+Quando o interesse do pesquisador é investigar o grau de associação entre variáveis, ele pode empregar o Coeficiente de Correlação de Pearson.
+Os resultados dessa análise podem variar de -1 a 1.
+Resultados positivos revelam associação diretamente proporcional entre as variáveis, resultados negativos revelam associação inversamente proporcional entre as variáveis e resultados próximos de zero indicam que não há associação entre as variáveis.\
+No entanto, antes de realizar a análise é preciso verificar se os dados atendem aos pressupostos da análise.
+
+### Verificação dos pressupostos para a análise
+
+```{r}
+# verificação de normalidade
+options(scipen = 999)
+shapiro.test(dataset$bai_sum)
+shapiro.test(dataset$bdi_sum)
+
+## representação gráfica da normalidade (histograma)
+hist(dataset$bdi_sum)
+hist(dataset$bai_sum)
+
+# presença de outliers
+boxplot(dataset$bdi_sum)
+boxplot(dataset$bai_sum)
+
+# Relação linear entre as variáveis
+plot(dataset$bdi_sum,dataset$bai_sum)
+
+# Análise de resíduos (homocedasticidade)
+lm_ans_dep <- lm(bdi_sum ~ bai_sum, dataset)
+
+par(mfrow = c(1,2)) # os números indicam uma linha, duas colunas
+plot(lm_ans_dep, which = c(1,3))
+# os gráficos mostram os resíduos pelos valores previstos.
+# o 1º mostra os resíduos brutos e o 2º ow resíduos padronizados
+# Em ambos os casos a linha deve estar paralela a x, o que indica relação linear entre as variáveis.
+# Em ambos os casos os pontos devem estar homogeneamente distribuídos ao longo da reta, distribuição de pontos igualitária ao longo da curva (homocedasticidade). A variação dos resíduos tem que ser homogênea ao longo da curva.
+# Verificação de outliers quando há resíduos acima de 3 ou abaixo de -3
+par(mfrow = c(1,1)) # voltar para um gráfico por vez
+```
+
+### Correlação simples entre duas variáveis
+
+Usando o dataframe `dataset`, vamos calcular o coeficiente de correlação entre depressão e ansiedade:
+
+```{r}
+# correlação de Pearson (r) com o pacote stats, que é da base do R
+options(scipen = 0)
+cor.test(dataset$bdi_sum,dataset$bai_sum, method = "pearson") %>% pander()
+
+# correlação de Spearman (rho)
+cor.test(dataset$bdi_sum,dataset$bai_sum, method = "spearman") %>% pander()
+
+# correlação de Kendal (Tau)
+cor.test(dataset$bdi_sum,dataset$bai_sum, method = "kendall") %>% pander()
+```
+
+A maioria das vezes, os pesquisadores querem observar as correlações entre mais de duas variáveis.
+Nesses casos, é necessário criar uma matriz de correlações.
+Para fazer isso, vamos usar o banco de dados `big_five` e a função `corrplot` do pacote `corrplot`.
+
+### Matriz de correlações
+
+```{r}
+# Importar o dataframe big_five
+big_five <- readRDS("big_five.rds")
+
+# obter matriz de correlações com a função cor() do stats, da base do R.
+matriz_cor <- cor(big_five[,59:63], method = "pearson")
+
+# obter matriz de correlações com a função corr.test(), do pacote psych
+matriz_psych <- corr.test(big_five[,59:63], method = "pearson") 
+
+matriz_psych$r
+matriz_psych$p
+matriz_psych$stars %>% pander()
+
+# matriz de correlações com linhas e colunas diferentes
+matriz1 <- corr.test(big_five[,59:63], big_five[,3], method = "pearson")
+matriz1$r
+matriz1$p
+matriz1$stars
+```
+
+### Representação gráfica das correlações
+
+```{r}
+ggplot(dataset, aes(x=bdi_sum,y=bai_sum)) +
+  geom_jitter() +
+  geom_smooth(method = "lm") +
+  labs(title ="Correlação entre Depressão e Ansiedade", 
+       x = "Depressão", 
+       y = "Ansiedade") +
+  theme_classic()
+
+# adicionar informações sobre a curva de regressão
+
+summary(lm_ans_dep) # esse linear model foi rodado no chunk acima
+ggplot(dataset, aes(x=bdi_sum,y=bai_sum)) +
+  geom_jitter() +
+  geom_smooth(method = "lm") +
+  labs(title ="Correlação entre Depressão e Ansiedade", 
+       x = "Depressão", 
+       y = "Ansiedade") +
+  theme_classic() + 
+  annotate("text",x=20,y=65,label="Adjusted R-squared:  0.3596") + 
+  annotate("text",x=20,y=60,label="bai_sum = 4.36700 + 0.57206*bdi_sum")
+  
+
+# matriz de correlações usando o corrplot
+corrplot::corrplot(matriz_psych$r, 
+                   method = "shade",
+                   type = "lower",
+                   order = "hclust",
+                   addCoef.col = TRUE)
+
+# opções de método: "circle", "square", "ellipse", "number", "shade", "color", "pie
+# opções de tipo: "lower", "upper", "full"
+# opção de ordem: "hclust"- organiza as correlações hierarquicamente
+#                 "original" - ordem das variáveis no banco
+#                 "AOE" - angular order of eigenvectors
+#                 "alphabet" - ordem alfabética
+```
+
+### Exercícios sobre correlação
+
+Baixe o banco de dados [rwas_us.xlsx](https://docs.google.com/spreadsheets/d/1ja_BnmHO4iXTYgIV__b8ZXvqIJi8506IERb7W6kp2Js/edit?usp=sharing), que foi empregada em um estudo sobre autoritarismo conservador, e cole-o no mesmo diretório em que você está salvando seus arquivos para este estudo.
+Para mais informações sobre as variáveis desse banco de dados, baixe também [este arquivo](https://docs.google.com/document/d/1oOXxYNLe7nd8kkK7QyOKu_2KiDqfO-wuyDuKbB17iz0/edit?usp=sharing).
+Importe esse banco de dados para o R. Note que ele está no formato `.xlsx`, um arquivo de excel. Portatno, para importá-lo, use a função `readxl::read_xlsx("rwas_us.xlsx")`.
+
+Em seguida, use esse banco de dados para realizar os exercício abaixo.
+
+1.  Calcule as correlações (r) e os índices de significância (p) entre os cinco grandes fatores de personalidade (extr, neur, amab, cons e aber).
+
+2.  Calcule as correlações (r) e os índices de significância (p) dos cinco grandes fatores de personalidade (extr, neur, amab, cons e aber) com raciocínio verbal (rv) e autoritarismo (auth), mas expresse os resultados com os traços de personalidade nas linhas e o rv e o auth nas colunas.
+
+3.  Faça um gráfico de pontos para cada par de correlações entre cinco grandes fatores.
+
+4.  Faça um gráfico de calor (heat map) para as correlações entre os cinco grandes fatores.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# saveRDS(rwas_us,"rwas_us.rds")
+rwas_us <- readRDS("rwas_us.rds")
+
+# 1. Calcule as correlações (r) e os índices de significância (p) entre os cinco grandes fatores de personalidade (extr, neur, amab, cons e aber).
+round(corr.test(rwas_us[,91:95], method = "pearson")$r,digits = 2)
+round(corr.test(rwas_us[,91:95], method = "pearson")$p,digits = 2)
+
+# 2. Calcule as correlações (r) e os índices de significância (p) dos cinco grandes fatores de personalidade (extr, neur, amab, cons e aber) com raciocínio verbal (rv) e autoritarismo (auth), mas expresse os resultados com os traços de personalidade nas linhas e o rv e o auth nas colunas.
+corr.test(rwas_us[,91:95],rwas_us[,c(96,97)])$r
+corr.test(rwas_us[,91:95],rwas_us[,c(96,97)])$p
+
+# 3. Faça um gráfico de pontos para cada par de correlações entre cinco grandes fatores.
+
+ggplot(rwas_us, aes(x=extr,y=neur)) +
+  geom_jitter() +
+  geom_smooth(method = "lm") +
+  labs(title ="Correlação entre Extroversão e Neuroticismo", 
+       x = "Extroversão", 
+       y = "Neuroticismo") +
+  theme_classic()
+
+# ggplot(rwas_us, aes(x=extr,y=amab)) +
+#   geom_jitter() +
+#   geom_smooth(method = "lm") +
+#   labs(title ="Correlação entre Extroversão e Amabilidade", 
+#        x = "Extroversão", 
+#        y = "Amabilidade") +
+#   theme_classic()
+# 
+# ggplot(rwas_us, aes(x=extr,y=cons)) +
+#   geom_jitter() +
+#   geom_smooth(method = "lm") +
+#   labs(title ="Correlação entre Extroversão e Conscienciosidade", 
+#        x = "Extroversão", 
+#        y = "Conscienciosidade") +
+#   theme_classic()
+# 
+# ggplot(rwas_us, aes(x=extr,y=aber)) +
+#   geom_jitter() +
+#   geom_smooth(method = "lm") +
+#   labs(title ="Correlação entre Extroversão e Abertura", 
+#        x = "Extroversão", 
+#        y = "Abertura") +
+#   theme_classic()
+# 
+# ggplot(rwas_us, aes(x=neur,y=amab)) +
+#   geom_jitter() +
+#   geom_smooth(method = "lm") +
+#   labs(title ="Correlação entre Neuroticismo e Amabilidade", 
+#        x = "Neuroticismo", 
+#        y = "Amabilidade") +
+#   theme_classic()
+# 
+# ggplot(rwas_us, aes(x=neur,y=cons)) +
+#   geom_jitter() +
+#   geom_smooth(method = "lm") +
+#   labs(title ="Correlação entre Neuroticismo e Conscienciosidade", 
+#        x = "Neuroticismo", 
+#        y = "Conscienciosidade") +
+#   theme_classic()
+# 
+# ggplot(rwas_us, aes(x=neur,y=aber)) +
+#   geom_jitter() +
+#   geom_smooth(method = "lm") +
+#   labs(title ="Correlação entre Neuroticismo e Abertura", 
+#        x = "Neuroticismo", 
+#        y = "Abertura") +
+#   theme_classic()
+# 
+# ggplot(rwas_us, aes(x=amab,y=cons)) +
+#   geom_jitter() +
+#   geom_smooth(method = "lm") +
+#   labs(title ="Correlação entre Amabilidade e Conscienciosidade", 
+#        x = "Amabilidade", 
+#        y = "Conscienciosidade") +
+#   theme_classic()
+# 
+# ggplot(rwas_us, aes(x=amab,y=aber)) +
+#   geom_jitter() +
+#   geom_smooth(method = "lm") +
+#   labs(title ="Correlação entre Amabilidade e Abertura", 
+#        x = "Amabilidade", 
+#        y = "Abertura") +
+#   theme_classic()
+# 
+# ggplot(rwas_us, aes(x=cons,y=aber)) +
+#   geom_jitter() +
+#   geom_smooth(method = "lm") +
+#   labs(title ="Correlação entre Conscienciosidade e Abertura", 
+#        x = "Conscienciosidade", 
+#        y = "Abertura") +
+#   theme_classic()
+
+# 4. Faça um gráfico de calor (heat map) para as correlações entre os cinco grandes fatores.
+round(corr.test(rwas_us[,91:95], method = "pearson")$r,digits = 2) %>% 
+corrplot::corrplot(method = "shade",
+                   type = "lower",
+                   order = "hclust",
+                   addCoef.col = TRUE)
+```
+
+## Regressão Linear Múltipla
+
+### Carregamento dos pacotes e importação do banco de dados
+
+```{r}
+if(!require(car)) install.packages("car")
+if(!require(lmtest)) install.packages("lmtest")
+if(!require(ggpubr)) install.packages("ggpubr")
+if(!require(QuantPsyc)) install.packages("QuantPsyc")
+if(!require(scatterplot3d)) install.packages("scatterplot3d")
+
+# library(car)
+# library(lmtest)
+# library(ggpubr)
+# library(QuantPsyc)
+# library(scatterplot3d)
+
+```
+
+### Análise dos pressupostos
+
+```{r}
+# selecionar os participantes brasileiros do df big_five.
+
+big_five_BR <- big_five %>% filter(país == "BR")
+
+# rodando a regressão (usando a função lm() do pacote stats (básico do R)
+# lm vem de linear model
+mod <- lm(idade ~ extr+neur+amab+cons+aber, # big-five predizendo idade
+          data=big_five_BR,                 # onde estão os dados
+          na.action = na.omit)              # ignorar NAs
+
+## Análise dos pressupostos
+par(mfrow = c(2,2))
+plot(mod)
+
+### O primeiro gráfico permite avaliar a linearidade. A linha vermelha tem que estar aproximadamente horizontal para o modelo ser linear.
+### O segundo gráfico permite verificar se os resíduos apresentam distribuição normal (Q-Q plot). No eixo y os resíduos encontrados e no eixo x os resíduos que seriam esperados caso a distribuição fosse de fato normal. O esperado é que os pontos caiam sobre a linha pontilhada.
+### O terceiro gráfico avalia homocedasticidade. Para que haja homocedasticidade (desejável) os pontos têm que estar distribuídos aleatoriamente pelo retângulo do gráfico e não formando um triângulo. Ou seja, os resíduos têm que ser aleatórios e não correlacionados entre si.
+### No quarto gráfico é possível verificar a existência de outliers e pontos influentes. Caso existam outliers haverá pontos para fora da linha pontilhada vermelha. Os resíduos padronizados devem estar entre -3 e +3 (eixo y).
+
+par(mfrow = c(1,1))   # voltar para 1 gráfico por página.
+
+## normalidade dos resíduos usando o pacote stats
+options(scipen = 999)
+shapiro.test(mod$residuals)
+
+## Outliers nos resíduos
+summary(rstandard(mod)) # os resultados devem estar entre -3 e +3
+
+## Teste de Durbin-Watson
+car::durbinWatsonTest(mod)
+### não há autocorrelação entre os resíduos quando o valor da estatística está próximo a 2 (entre 1,5 e 2,5, ou entre 1 e 3)
+
+## Homocedasticidade (Breusch-Pagan) ou homogeneidade das variâncias
+lmtest::bptest(mod)   # o valor de p > 0,05 indica que há homocedasticidade
+
+## Ausência de multicolinearidade
+names(big_five_BR)
+pairs.panels(big_five_BR[,59:63]) # há multicolinearidade quando r > 0.9
+
+car::vif(mod)   
+### há problema de multicolinearidade quando vif > 10
+### Maroco (2003) diz o Variance Inflation Factor (VIF), deve apresentar valores inferiores a 5 para ausência de multicolinearidade.
+
+
+
+## Interpretação do modelo
+summary(mod)
+
+# estatística F: comparação do modelo real com o modelo nulo (sem variáveis independentes). Então, só faz sentido usar o modelo real se ele for melhor que o modelo nulo. Para isso, o valor de p < 0,05.
+# R-squared: porcentagem da variância que é explicada pelo modelo. O R-squared corrige pelo número de variáveis, o que permite comparar modelos com diferentes números de variáveis independentes. 
+
+mod2 <- lm(idade ~ extr + cons, big_five_BR, na.action = na.omit)
+
+summary(mod2)
+
+### Se olhar o R-squared do mod e mod2, pode-se ter uma ideia de qual modelo é melhor.
+
+## Obtenção dos coeficientes padronizados pelo pacote (QuantPsyc)
+QuantPsyc::lm.beta(mod)
+QuantPsyc::lm.beta(mod2)
+
+
+## Obtenção do IC 95% para os coeficientes
+confint(mod)
+### para o valor de p ser significativo, o intervalo de confiança não pode incluir o zero. às vezes isso não funciona por causa do métdo de análise das distribuições.
+confint(mod2)
+
+# Comparação de modelos
+## AIC e BIC - Comparação entre quaisquer modelos
+
+AIC(mod, mod2)   
+### quanto menor, melhor
+### representam a variância não explicada pelo modelo
+### para um modelo ser melhor que o outro, a diferença deve ser pelo menos 10.
+
+BIC(mod,mod2) # Modelo Bayesiano, que funciona da mesma forma.
+
+# Comparação de modelos aninhados (o modelo 2 é derivado do modelo 1)
+anova(mod,mod2)
+### o melhor modelo será o valor de RSS menor (residual sum of squares)
+
+
+# Representação gráfica
+graph <- scatterplot3d::scatterplot3d(
+                       big_five_BR$idade ~ big_five_BR$extr + big_five_BR$cons,
+                       pch = 16, 
+                       angle = 30, 
+                       color = "steelblue", 
+                       box = FALSE,
+                       xlab = "Extroversão", 
+                       ylab = "Conscienciosidade", 
+                       zlab = "Idade")
+
+graph$plane3d(mod2, col = "black", draw_polygon = TRUE)
+```
+
+### Exercícios sobre regressão linear múltipla
+
+Utilizando o arquivo rwas_us, que já empregamos no exercício anterior, realizar uma análise de regressão para verificar se os traços de personalidade e o raciocínio verbal predizem autoritarismo.
+Interprete os resultados.
+
+```{r include=FALSE}
+#rwas <- read.csv("rwas.csv", header = TRUE, sep = ",",stringsAsFactors = TRUE)
+
+# Inspecionar o banco de dados
+# glimpse(rwas)
+
+# Fazer uma cópia de segurança desse banco de dados.
+# rwas_copy <- rwas # cópia de segurança
+
+
+# inverter itens negativos usando função recode() do expss
+# itens já foram invertidos, por isso o código está desligado
+# expss::recode(rwas[ ,c("TIPI2","TIPI6","TIPI8","TIPI9","TIPI10")]) <- c(1~7,2~6,3~5,4~4,5~3,6~2,7~1)
+
+# Atribuição de labels aos itens do TIPI
+# rwas <- apply_labels(rwas,
+#                      TIPI1 = "Extraverted, enthusiastic",
+#                      TIPI2 = "Critical, quarrelsome",
+#                      TIPI3 = "Independable, self-disciplined",
+#                      TIPI4 = "Anxious, easily upset",
+#                      TIPI5 = "Open to new experiences, complex",
+#                      TIPI6 = "Reserved, quiet",
+#                      TIPI7 = "Sympathetic, warm",
+#                      TIPI8 = "Disorganized, careless",
+#                      TIPI9 = "Calm, emotionally stable",
+#                      TIPI10 = "Conventional, uncreative")
+
+# Análise fatorial do TIPI
+
+fa_tipi <- rwas %>% dplyr::select(48:57) %>% fa(nfactors = 5, 
+                                         cor = "cor",
+                                         fm = "wls",
+                                         rotate = "geominQ")
+
+fa_tipi <- fa(rwas[,48:57],
+              nfactors = 5,
+              cor = "cor",
+              fm = "wls",
+              rotate = "geominQ")
+
+rwas$extr <- rwas %>% dplyr::select("TIPI1","TIPI6") %>% rowMeans()
+rwas$neur <- rwas %>% dplyr::select("TIPI2","TIPI7") %>% rowMeans()
+rwas$amab <- rwas %>% dplyr::select("TIPI4","TIPI9") %>% rowMeans()
+rwas$cons <- rwas %>% dplyr::select("TIPI3","TIPI8") %>% rowMeans()
+rwas$aber <- rwas %>% dplyr::select("TIPI5","TIPI10") %>% rowMeans()
+
+rwas$rv <- rwas %>% dplyr::select(58:62,64:65,67:68,70:73) %>% rowSums()
+
+# Escala de autoritarismo de direita
+rwas$auth <- rwas %>% dplyr::select(3:22) %>% rowSums()
+
+# Seleção de participantes americanos para redução do df
+rwas_us <- rwas %>% filter(IP_country == "US")
+
+# rodando a regressão
+glimpse(rwas_us)
+
+mod_rwas_us <- lm(auth ~ extr+neur+amab+cons+aber+rv,
+                  data=rwas_us,
+                  na.action = na.omit)
+summary(mod_rwas_us)
+
+## Análise dos pressupostos
+par(mfrow = c(2,2))
+plot(mod_rwas_us)
+
+### O primeiro gráfico permite avaliar a linearidade. A linha vermelha tem que estar aproximadamente horizontal para o modelo ser linear.
+### O segundo gráfico permite verificar se os resíduos apresentam distribuição normal (Q-Q plot). No eixo y os resíduos encontrados e no eixo x os resíduos que seriam esperados caso a distribuição fosse de fato normal. O esperado é que os pontos caiam sobre a linha pontilhada
+### O terceiro gráfico avalia homocedasticidade. Para que haja homocedasticidade os pontos têm que estar distribuídos aleatoriamente pelo retângulo do gráfico e não formando um triângulo. Ou seja, os resíduos têm que ser aleatórios e não correlacionados entre si.
+### No quarto gráfico é possível verificar a existência de outliers e pontos influentes. Caso existam outliers haverá pontos para fora da linha pontilhada vermelha. Os resíduos padronizados devem estar entre -3 e +3 (eixo y).
+
+par(mfrow_us = c(1,1))   # voltar para 1 gráfico por página.
+
+## normalidade dos resíduos
+options(scipen = 999)
+shapiro.test(mod_rwas_us$residuals)
+
+## Outliers nos resíduos
+summary(rstandard(mod_rwas_us)) # os resultados devem estar entre -3 e +3
+
+## Teste de Durbin-Watson
+car::durbinWatsonTest(mod_rwas_us)   
+### não há autocorrelação entre os resíduos quando o valor da estatística está próximo a 2 (entre 1,5 e 2,5, ou entre 1 e 3)
+
+## Homocedasticidade (Breusch-Pagan) ou homogeneidade das variâncias
+lmtest::bptest(mod_rwas_us)   # o valor de p > 0,05 indica que há homocedasticidade
+
+
+## Ausência de multicolinearidade
+
+pairs.panels(rwas_us[,91:95]) # há multicolinearidade quando r > 0.9
+
+car::vif(mod_rwas_us)
+### há problema de multicolinearidade quando vif > 10
+
+## Interpretação do modelo
+summary(mod_rwas_us)
+
+# estatística F: comparação do modelo real com o modelo nulo (sem variáveis independentes). Então, só faz sentido usar o modelo real se ele for melhor que o modelo nulo. Para isso, o valor de p < 0,05.
+# R-squared: porcentagem da variância que é explicada pelo modelo. O R-squared corrige pelo número de variáveis, o que permite comparar modelos com diferentes números de variáveis independentes. 
+
+mod2_rwas_us <- lm(auth ~ amab + cons + rv, rwas_us)
+
+summary(mod2_rwas_us)
+
+### Se olhar o R-squared do mod e mod2, pode-se ter uma ideia de qual modelo é melhor.
+
+## Obtenção dos coeficientes padronizados pelo pacote (QuantPsyc)
+QuantPsyc::lm.beta(mod_rwas_us)
+QuantPsyc::lm.beta(mod2_rwas_us)
+
+## Obtenção do IC 95% para os coeficientes
+confint(mod2_rwas_us)
+### para o valor de p ser significativo, o intervalo de confiança não pode incluir o zero. às vezes isso não funciona por causa do métdo de análise das distribuições.
+
+# Comparação de modelos
+## AIC e BIC - Comparação entre quaisquer modelos
+
+AIC(mod_rwas_us, mod2_rwas_us)   
+### quanto menor, melhor
+### representam a variância não explicada pelo modelo
+### para um modelo ser melhor que o outro, a diferença deve ser pelo menos 10.
+
+BIC(mod_rwas_us, mod2_rwas_us) # Modelo Bayesiano, que funciona da mesma forma.
+
+# Comparação de modelos aninhados (o modelo 2 é derivado do modelo 1)
+anova(mod_rwas_us, mod2_rwas_us)
+### o melhor modelo será o valor de RSS menor (residual sum of squares)
+
+```
+
+## Regressão logística
+
+A regressão logística é mais apropriada quando se quer predizer uma variável dicotômica, ou as chances de que uma de duas categorias ocorram.
+Por exemplo, predizer a existência de certa condição mental (sim ou não), ser aprovado numa prova (sim ou não), ser parte do grupo experimental de uma investigação (sim ou não), entre outras.
+A regressão logística modela os dados por meio de uma curva sigmóide, em forma de S.
+Vejamos.
+
+### Pacotes necessários
+
+```{r}
+# pacman::p_load(dplyr,car,MASS,DescTools,QuantPsyc,ggplot2)
+```
+
+Para fazer a análise, usaremos o banco de dados rwas.
+Abaixo estão os códigos para as transformações das variáveis.
+
+```{r}
+# criar arquivo para teste das análises
+
+rwas$education <- as.factor(rwas$education)
+levels(rwas$education) <- c(NA,"Less than high school","High school","University degree","Graduate degree")
+
+rwas$urban <- as.factor(rwas$urban)
+levels(rwas$urban) <- c(NA,"Rural (country side)","Suburban","Urban (town, city)")
+count(rwas,urban)
+
+rwas$gender <- as.factor(rwas$gender)
+levels(rwas$gender) <- c(NA,"Male","Female","Other")
+count(rwas,gender)
+
+expss::recode(rwas$engnat) <- c(0~NA,1~1,2~0)
+rwas$engnat <- as.factor(rwas$engnat)
+levels(rwas$engnat) <- c("No","Yes",NA)
+count(rwas,engnat)
+
+# count(rwas,age) %>% knitr::kable()
+rwas$age[rwas$age > 100] <- NA
+
+rwas$religion <- as.factor(rwas$religion)
+levels(rwas$religion) <- c(NA,"Agnostic","Atheist","Buddhist","Christian (Catholic)","Christian (Mormon)",
+                            "Christian (Protestant)","Christian (Other)","Hindu","Jewish","Muslim","Sikh","Other")
+count(rwas,religion)
+
+rwas$orientation <- as.factor(rwas$orientation)
+levels(rwas$orientation) <- c(NA,"Heterosexual","Arab","Black","Indigenous Australian","Native American or White","Other")
+count(rwas,orientation)
+
+rwas$race <- as.factor(rwas$race)
+levels(rwas$race) <- c(NA,"Asian","Bisexual","Homosexual","Asexual","Other")
+count(rwas,race)
+
+expss::recode(rwas$voted) <- c(0~NA,1~1,2~0)
+rwas$voted <- as.factor(rwas$voted)
+levels(rwas$voted) <- c("No","Yes",NA)
+count(rwas,voted)
+
+rwas$married <- as.factor(rwas$married)
+levels(rwas$married) <- c(NA,"Never married","Currently married","Previously married")
+count(rwas,married)
+
+glimpse(rwas)
+
+# cópia de segurança do arquivo base
+rwas1 <- rwas
+```
+
+Nessa análise estamos tentando predizer se uma pessoa é ateia ou cristã-católica a partir dos cinco grandes fatores de personalidade e da variável sexo (masculino e feminino).
+Iremos testar dois modelos.
+O primeiro com todas as variáveis e o segundo somente com as variáveis que se mostrarem significativas no primeiro modelo.
+Para poder comparar esses modelos é necessário obter um banco de dados de igual comprimento nos dois modelos e isso é dificultado pelos NA's nas variáveis preditoras.
+Por isso, vamos criar um subset do banco de dados rwas, que esteja livre de NA's.
+
+# Análise de Pressupostos
+
+```{r}
+# Criar variável em que Atheist=0, Christian(Catholic)=1 e os demais são NA
+# A ideia é contrapor ateus e católicos. 
+# Pergunta: traços de personalidade conseguem predizer se uma pessoa é ateia ou religiosa.
+rwas <- rwas %>% mutate(believer = ifelse(religion == "Atheist",0,
+                                          ifelse(religion == "Christian (Catholic)",1,NA)))
+# transformar variável believer em fator
+rwas$believer <- as.factor(rwas$believer)
+levels(rwas$believer) <- c("Atheist","Christian (Catholic)",NA)
+
+# criar variável sex a partir de gender, para transformá-la numa variável com apenas duas categorias: masculino e feminino
+
+rwas$sex <- rwas$gender
+expss::recode(rwas$sex) <- c("Male" ~ "Male", "Female" ~ "Female", "Other" ~ NA)
+levels(rwas$sex) <- c("Male","Female",NA)
+
+# Selecionar um subset do rwas sem nenhum NA
+# Isso é necessário especialmente quando se deseja comparar modelos, que têm que ter a mesma extensão.
+rwas_nona <- rwas[which(complete.cases(rwas[,c('believer', 'extr', 'neur', 'amab', 'cons', 'aber', "sex")])),]
+
+# Análise das frequências em cada categoria da VD
+table(rwas_nona$believer)
+summary(rwas_nona)
+
+# Checar categoria de referência das variáveis categóricas
+levels(rwas_nona$believer) # Atheist é a categoria de referência
+levels(rwas_nona$sex)      # Male é a categoria de referência
+
+# Pressupostos
+## 1. Variàvel dependente dicotômica com categorias mutuamente excludentes
+## 2. Independência das observações 
+## 3. Ausência de outliers / pontos de alavancagem
+
+mod_rlog1 <- glm(believer ~ extr+neur+cons+amab+aber+sex,
+                 family = "binomial"(link = "logit"),
+                 data = rwas_nona,
+                 na.action = na.omit)
+summary(mod_rlog1)
+plot(mod_rlog1, which = 5)
+# verificar se os pontos se concentram dentro dos limites da linha tracejada (cook's distance)
+
+summary(stdres(mod_rlog1)) 
+# o resultados deve estar entre -3 e 3.
+
+## 4. Ausência de multicolinearidade
+pairs.panels(rwas[,c("extr","neur","amab","cons","aber")])
+## As correlações devem estar abaixo de 0,9 (alguns autores falam em <0.8)
+
+vif(mod_rlog1)
+## ocorre problema de multicolinearidade quanto vif>10
+
+
+```
+
+## Rodando os modelos
+
+```{r}
+# MODELO 1
+mod_rlog1 <- glm(believer ~ extr+neur+cons+amab+aber+sex,
+                 family = "binomial"(link = "logit"),
+                 data = rwas_nona,
+                 na.action = na.omit)
+
+## Overall effects
+Anova(mod_rlog1, type = "II", test.statistic = "Wald") 
+### Obs.: Anova, com A maiúscula, é do pacote car.
+### Obs.: anova, com a minúscula, é do pacote stats, da base do R.
+
+summary(mod_rlog1)
+
+## razões de chances (usando o erro padrão)
+round(exp(cbind(OR = coef(mod_rlog1), confint.default(mod_rlog1))),digits = 3)
+
+# MODELO 2 - somente com as variáveis preditoras significativas no MODELO 1
+mod_rlog2 <- glm(believer ~ extr+neur+cons+aber, 
+                 family = "binomial"(link = "logit"),
+                 data = rwas_nona,
+                 na.action = na.omit)
+
+## Overall effects - MODELO 2
+Anova(mod_rlog2, type = "II", test.statistic = "Wald")
+
+summary(mod_rlog2)
+
+## Razões de chances (usando o erro padrão)
+round(exp(cbind(OR = coef(mod_rlog2), confint.default(mod_rlog2))),digits = 3)
+
+# COMPARAÇÃO ENTRE MODELOS 1 E 2
+
+## AIC e BIC
+
+AIC(mod_rlog1,mod_rlog2)
+BIC(mod_rlog1,mod_rlog2)
+
+## Qui-quadrado
+
+anova(mod_rlog2,mod_rlog1, test = "Chisq") 
+```
+
+## Exercício sobre Análise de Regressão Logística
+
+Para realizar um exercício sobre a análise de regressão logística, vamos considerar o seguinte **ESTUDO FICTÍCIO**: no processo de validação de um instrumento para avaliação da depressão , esse instrumento foi aplicado em um grupo de 30 pessoas com um diagnóstico independente de depressão e em 30 pessoas que não apresentavam sintomas de depressão.
+Os dados estão no dataframe `invdep`, que foi criado a partir da geração de dados aleatórios.
+
+## Construção do dataframe fictício `invdep`
+
+```{r}
+
+# Utilização da função rnorm(n sujeitos, média, desvio padrão) para gerar valores para 30 sujeitos, que serão os controles.
+# a função round() foi combinada com a função rnorm() apenas para que os valores gerados tivessem apenas uma casa decimal
+invdep1 <- round(rnorm(30, mean = 20, sd = 5), digits = 1)
+
+# Procedimento semelhante foi empregado para a geração dos dados para 30 sujeitos do grupo de depressivos.
+invdep2 <- round(rnorm(30, mean = 26, sd = 4), digits = 1)
+
+# combinação num dataframe
+invdep <- data.frame(id = paste("s",1:60,sep = ""),             # id
+                     invdep = c(invdep1,invdep2),               # invedp 60 sujeitos
+                     grupo = as.factor(c(rep(0:1, each = 30)))) # controle 0
+                                                                # depressivo 1
+
+# Transformação da variável grupo em fator
+levels(invdep$grupo) <- c("controle","depressivos")
+
+# se quiser exportar o arquivo invdep.csv
+# write.csv2(invdep,"invdep.csv")
+```
+
+Utilize o banco de dados [invdep.csv](https://docs.google.com/spreadsheets/d/10moCTYuykDRNFOG6hDZz2F5aNU8jSyolTjgoTlajsWw/edit?usp=sharing) para investigar se o instrumento para avaliação da depressão é capaz de discriminar quem foi de quem não foi diagnosticado independemente com depressão.
+
+```{r include=FALSE}
+
+mod_invdep <- glm(grupo ~ invdep,
+                  family = "binomial"(link = "logit"),
+                  data = invdep,
+                  na.action = na.omit)
+
+## Overall effects
+
+car::Anova(mod_invdep, type = "II", test.statistic = "Wald") 
+### Obs.: Anova, com A maiúscula, é do pacote car.
+### Obs.: anova, com a minúscula, é do pacote stats, da base do R.
+
+summary(mod_invdep)
+
+## razões de chances (usando o erro padrão)
+round(exp(cbind(OR = coef(mod_invdep), confint.default(mod_invdep))),digits = 3)
+
+```
+
+# Análise fatorial exploratória
+
+```{r}
+# ANÁLISE FATORIAL DO TIPI
+
+## Determinação do número de fatores a serem retidos
+rwas %>% dplyr::select(48:57) %>% scree(pc = FALSE)
+
+
+## AFE
+fa_tipi <- rwas %>% dplyr::select(48:57) %>% fa(nfactors = 5, 
+                                                cor = "cor",
+                                                fm = "wls",
+                                                rotate = "geominQ")
+
+# ANÁLISE FATORIAL DO VCL
+
+## Determinação do número de fatores a serem retidos
+rwas %>% dplyr::select(58:73) %>% scree(pc = FALSE)
+
+## AFE
+fa_rv <- rwas %>% dplyr::select(58:73) %>% fa(nfactors = 2,
+                                       cor = "tet",
+                                       fm = "wls")
+summary(fa_rv)
+fa_rv$Structure
+
+# OBS: O resultados com dois fatores é interessante porque o segundo fator é exatamente com os itens 6, 9 e 12, que não são palavras reais. 
+
+# Eliminação de itens que apresentaram cargas mais baixas.
+fa_rv1 <- rwas %>% 
+  dplyr::select(58:62,64:65,67:68,70:73) %>% 
+  fa(nfactors = 1,cor = "tet",fm = "wls")
+
+summary(fa_rv1)
+fa_rv1$Structure
+```
+
+## Exercício com análise fatorial exploratória
+
+Realizar uma análise fatorial exploratória com os itens do BDI e do BAI que integram o dataframe `dataset`.
+Faça uma análise de sedimentação (scree-plot) para determinar o número de fatores.
+Rode a análise fatorial exploratória com o número de fatores sugerido pelo scree-plot e verifique a distribuição dos itens.
+Pela teoria, seria esperada a formação de dois fatores, um com os itens de depressão e outro com os itens de ansiedade.
+Considere que as cargas superiores a 0,3 para que o item integre um fator.
+Observe a correlação entre os fatores.
+
+```{r include=FALSE}
+
+names(dataset) %>% as.data.frame()
+# ANÁLISE FATORIAL
+
+## Determinação do número de fatores a serem retidos
+
+dataset %>% dplyr::select(46:87) %>% scree(pc = FALSE)
+
+
+## AFE
+fa_ansdep <- dataset %>% dplyr::select(46:87) %>% fa(nfactors = 2, 
+                                           cor = "cor",
+                                           fm = "wls",
+                                           rotate = "geominQ")
+
+
+```

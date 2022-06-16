@@ -1,0 +1,618 @@
+---
+title: "Estatística no R"
+author: "Maurício Bueno"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: no
+  word_document:
+    toc: yes
+editor_options:
+  chunk_output_type: console
+  markdown: 
+    wrap: sentence
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+```
+
+Esta disciplina tem como objetivo aprender a realizar análises estatísticas mais empregadas em pesquisas em psicologia, no ambiente de programação R.
+Inicialmente, vamos carregar (`install.packages()) e ativar (library()`) os pacotes que iremos utilizar na disciplina.
+
+# Carregamento dos pacotes
+
+```{r}
+if(!require(tidyverse)) install.packages("tidyverse")
+if(!require(psych)) install.packages("psych")
+if(!require(knitr)) install.packages("knitr")
+if(!require(kableExtra)) install.packages("kableExtra")
+if(!require(expss)) install.packages("expss")
+if(!require(janitor)) install.packages("janitor")
+if(!require(pander)) install.packages('pander')
+if(!require(arsenal)) install.packages('arsenal')
+if(!require(moments)) install.packages('moments')
+if(!require(readr)) install.packages('moments')
+if(!require(readxl)) install.packages('readxl')
+if(!require(descr)) install.packages("descr")
+if(!require(rcompanion)) install.packages("rcompanion")
+if(!require(rstatix)) install.packages("rstatix")
+# Ativação dos pacotes ====
+
+library(tidyverse)
+library(pander)
+library(janitor)
+library(psych)
+library(knitr)
+library(arsenal)
+library(rstatix)
+library(GPArotation)
+# library(kableExtra)
+# library(expss)
+# library(readxl)
+# library(readr)
+# library(corrplot)
+```
+
+# Importar banco de dados
+
+Inicialmente vamos trabalhar com o banco de dados `dataset_mapfre.csv`, clique [aqui](https://docs.google.com/spreadsheets/d/1G0lQKeU0atMk3Q4wO5zz4HdvReRxKS68vx_Q0WbB37A/edit?usp=sharing) para baixá-lo.
+Esse banco de dados se refere ao artigo "[Sintomas de depressão e ansiedade em uma amostra representativa de universitários espanhóis, portugueses e brasileiros](https://drive.google.com/file/d/1qa0iCDm2DRvh3M6a2k7ENGahceDAlPIg/view?usp=sharing)".
+Sugere-se a leitura desse artigo para a compreensão dos dados.
+
+```{r}
+dataset <- read.csv("dataset_mapfre.csv",encoding="UTF-8",stringsAsFactors=TRUE)
+
+# OBS: Para que este comando funcione, é necessário que o arquivo csv esteja no diretório de trabalho do R.
+
+# Observar o banco de dados
+glimpse(dataset)
+```
+
+# Estatística descritiva
+
+## Frequências
+
+```{r}
+
+# Função count()
+dataset %>% 
+  filter(!is.na(sex)) %>% 
+  group_by(sex) %>% 
+  count(country) %>% 
+  mutate(porc = n/sum(n)*100) %>% 
+  pander()
+
+# usando a função tabyl() do pacote janitor
+# contar quantas pessoas de cada país.
+
+dataset %>%             # pegar o dataframe dataset
+  tabyl(country) %>%    # use a função tabyl para tabular as categorias de país
+  pander()              # utilize o pander para fazer a tabela
+
+dataset %>%             # pegar o dataframe dataset
+  tabyl(country) %>%    # use a função tabyl para tabular as categorias de país
+  adorn_totals() %>%    # acrescente uma linha com os totais
+  pander()              # utilize o pander para fazer a tabela
+
+# contar por gênero e país (retirando NAs)
+dataset %>% 
+  filter(!is.na(sex)) %>% 
+  tabyl(sex,country) %>% 
+  adorn_totals() %>% 
+  pander()
+
+# contar por gênero e país, acrescentando funções
+dataset %>% 
+  filter(!is.na(sex)) %>% 
+  tabyl(country,sex) %>%           # função de tabulação do janitor
+  adorn_totals(c("row","col")) %>% # adiciona o N
+  adorn_percentages("row") %>%     # adiciona porcentagens
+  adorn_pct_formatting(
+    rounding = "half up",          # arredondar do cinco pra cima
+    digits = 0) %>%                # número de casas decimais
+  adorn_ns() %>%                   # mostra N e % juntas
+  pander()                         # melhora a visualização dos dados.
+
+# adição de um qui-quadrado para a distribuição
+# para rodar essa análise tem que tirar os totais.
+
+# dataset %>% 
+  # filter(!is.na(sex)) %>% 
+  # tabyl(country,sex) %>%           # função de tabulação do janitor
+  # adorn_totals(c("row","col")) %>% # adiciona o N
+  # chisq.test()
+  # pander()                         # melhora a visualização dos dados.
+```
+
+#### Exercício
+
+Utilize o dataframe `dataset` para realizar os exercícios abaixo:
+
+1.  Crie uma tabela de frequências dos cursos (grado) dos participantes.
+
+2.  Crie uma tabela de frequências dos cursos dos participantes, por sexo, com totais.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+dataset %>%
+  tabyl(grado) %>%  
+  adorn_totals() %>%
+  pander()          
+
+dataset %>% 
+  filter(!is.na(sex)) %>% 
+  tabyl(grado,sex) %>%           
+  adorn_totals(c("row","col")) %>% 
+  adorn_percentages("row") %>%     
+  adorn_pct_formatting(rounding = "half up", digits = 0) %>% 
+  adorn_ns() %>%
+  pander()      
+```
+
+## Medidas de tendência central e de dispersão
+
+A descrição dos dados geralmente é realizada pelas seguintes estatísticas: Média, desvio padrão, mediana, amplitude, mínimo, máximo, assimetria e curtose.
+Para calculá-las podemos usar funções específicas para cada uma ou funções que realizam um conjunto de análises descritivas.
+
+### Funções específicas
+
+```{r}
+
+## mean()
+mean(dataset$age, na.rm = TRUE)
+
+## sd()
+sd(dataset$age, na.rm = TRUE)
+
+## median()
+median(dataset$age, na.rm = TRUE)
+
+## min()
+min(dataset$age, na.rm = TRUE)
+
+## max()
+max(dataset$age, na.rm = TRUE)
+
+## range()
+range(dataset$age, na.rm = TRUE)
+
+## skewness()
+moments::skewness(dataset$age, na.rm = TRUE) # pacote moments 
+skew(dataset$age, na.rm = TRUE)              # pacote psych
+
+## kurtosis()
+moments::kurtosis(dataset$age, na.rm = TRUE) # pacote moments
+kurtosi(dataset$age, na.rm = TRUE)           # pacote psych
+```
+
+#### Exercícios
+
+Calcule as estatísticas descritivas: média, desvio padrão, mediana, valores mínimo e máximo, amplitude, assimetria e curtose das pontuações em depressão (bdi_sum) e ansiedade (bai_sum).
+Crie uma tabela (dataframe) com esses valores.
+
+```{r include=FALSE}
+# média
+mean(dataset$bdi_sum, na.rm = TRUE)
+mean(dataset$bai_sum, na.rm = TRUE)
+
+# desvio padrão
+sd(dataset$bdi_sum, na.rm = TRUE)
+sd(dataset$bai_sum, na.rm = TRUE)
+
+# mínimo
+min(dataset$bdi_sum, na.rm = TRUE)
+min(dataset$bai_sum, na.rm = TRUE)
+
+# máximo
+max(dataset$bdi_sum, na.rm = TRUE)
+max(dataset$bai_sum, na.rm = TRUE)
+
+# amplitude
+range(dataset$bdi_sum, na.rm = TRUE)
+range(dataset$bai_sum, na.rm = TRUE)
+
+# assimetria
+moments::skewness(dataset$bdi_sum, na.rm = TRUE) # assimetria positiva (rabo para a direita)
+skew(dataset$bdi_sum, na.rm = TRUE)
+moments::skewness(dataset$bai_sum, na.rm = TRUE) # assimetria positiva (rabo para a direita)
+skew(dataset$bai_sum, na.rm = TRUE)
+
+# curtose
+moments::kurtosis(dataset$bdi_sum, na.rm = TRUE) # curva leptocúrtica (pontuda)
+kurtosi(dataset$bdi_sum, na.rm = TRUE) # curva leptocúrtica (pontuda)
+
+moments::kurtosis(dataset$bai_sum, na.rm = TRUE) # curva leptocúrtica (pontuda)
+kurtosi(dataset$bai_sum, na.rm = TRUE) # curva leptocúrtica (pontuda)
+
+# Tabela
+
+data.frame(Estatísticas =       # data.frame() é a função para criar uma tabela ou planilha
+             c("Média",         # eu quero três colunas: estatísticas, depressão e ansiedade
+               "Desvio Padrão", # então, precisamos definir o que vai aparecer em cada coluna   
+               "Mínimo",
+               "Máximo",
+               "Assimetria",
+               "Curtose"),
+           Depressão = 
+             c(mean(dataset$bdi_sum, na.rm = TRUE),
+               sd(dataset$bdi_sum, na.rm = TRUE),
+               min(dataset$bdi_sum, na.rm = TRUE),
+               max(dataset$bdi_sum, na.rm = TRUE),
+               moments::skewness(dataset$bdi_sum, na.rm = TRUE),
+               moments::kurtosis(dataset$bdi_sum, na.rm = TRUE)),
+           Ansiedade = 
+             c(mean(dataset$bai_sum, na.rm = TRUE),
+               sd(dataset$bai_sum, na.rm = TRUE),
+               min(dataset$bai_sum, na.rm = TRUE),
+               max(dataset$bai_sum, na.rm = TRUE),
+               moments::skewness(dataset$bai_sum, na.rm = TRUE),
+               moments::kurtosis(dataset$bai_sum, na.rm = TRUE))) %>% 
+  pander()
+```
+
+# Distribuição normal
+
+A distribuição normal (ou distribuição de Gauss) é uma distribuição de probabilidades, isto é ela indica a probabilidade de um certo valor ser obtido.
+Uma **distribuição normal padrão** apresenta médial igual a zero e desvio padrão igual a 1.
+A média fica no centro da distribuição e coincide com a mediana, separando a amostra em duas metades.
+Quando a curtose (achatamento) e assimetria (distribuição lateral) são diferentes de zero, a distribuição começa a se afastar da normal.
+
+```{r eval=FALSE, include=FALSE}
+distalea <- runif(n=100000, min=1, max=5)
+hist(distalea)
+mean(distalea)
+sd(distalea)
+# Extrai os percentis de uma variável
+# punif(big_five_BR$extr,min = 1,max = 5) * 100
+
+# Retirar 40 amostras da população distalea, calcular as médias e montar uma lista
+distalea_mean_list <- c(mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)),
+                        mean(sample(distalea, 100, replace = FALSE)))
+
+hist(distalea_mean_list)
+
+# Criar / Extrair amostra com valores inteiros
+
+sample(
+  x = 1:5,
+  size = 1000,
+  replace = TRUE) %>% hist()
+
+# usando a função rnorm() para gerar dados aleatórios 
+# rnorm(n, mean = 10, sd = 2)
+
+# gerar 
+distnorm <- rnorm(100000, mean = 10, sd = 2)
+mean(distnorm)
+sd(distnorm)
+hist(distnorm, breaks = 50)
+range(distnorm)
+skew(distnorm)
+kurtosi(distnorm)
+
+sample(distnorm,          # nome do arquivo
+       100,               # número de observações que se deseja extrair
+       replace = FALSE)   # False indica que a amostra será extraída sem reposição.
+
+
+s1 <- sample(distnorm, 100, replace = FALSE)
+s2 <- sample(distnorm, 100, replace = FALSE)
+s3 <- sample(distnorm, 100, replace = FALSE)
+s4 <- sample(distnorm, 100, replace = FALSE)
+s5 <- sample(distnorm, 100, replace = FALSE)
+s6 <- sample(distnorm, 100, replace = FALSE)
+s7 <- sample(distnorm, 100, replace = FALSE)
+s8 <- sample(distnorm, 100, replace = FALSE)
+s9 <- sample(distnorm, 100, replace = FALSE)
+s10 <- sample(distnorm, 100, replace = FALSE)
+s11 <- sample(distnorm, 100, replace = FALSE)
+s12 <- sample(distnorm, 100, replace = FALSE)
+s13 <- sample(distnorm, 100, replace = FALSE)
+s14 <- sample(distnorm, 100, replace = FALSE)
+s15 <- sample(distnorm, 100, replace = FALSE)
+s16 <- sample(distnorm, 100, replace = FALSE)
+s17 <- sample(distnorm, 100, replace = FALSE)
+s18 <- sample(distnorm, 100, replace = FALSE)
+s19 <- sample(distnorm, 100, replace = FALSE)
+s20 <- sample(distnorm, 100, replace = FALSE)
+
+mean(s1 )
+mean(s2 )
+mean(s3 )
+mean(s4 )
+mean(s5 )
+mean(s6 )
+mean(s7 )
+mean(s8 )
+mean(s9 )
+mean(s10)
+mean(s11)
+mean(s12)
+mean(s13)
+mean(s14)
+mean(s15)
+mean(s16)
+mean(s17)
+mean(s18)
+mean(s19)
+mean(s20)
+
+médias <- c(mean(s1),mean(s2),mean(s3),mean(s4),mean(s5),mean(s6),mean(s7),mean(s8),mean(s9), mean(s10),mean(s11),mean(s12),mean(s13),mean(s14),mean(s15),mean(s16),mean(s17),mean(s18),mean(s19), mean(s20))
+
+mean(médias)
+sd(médias)
+hist(médias,breaks = 5)
+
+mean(médias) - sd(médias) # um desvio abaixo da média
+mean(médias) - 2*sd(médias) # dois desvios abaixo da média
+
+mean(médias) + sd(médias) # um desvio abaixo da média
+mean(médias) + 2*sd(médias) # dois desvios abaixo da média
+
+#mean(c(mean(s1),mean(s2),mean(s3),mean(s4),mean(s5),mean(s6),mean(s7),mean(s8),mean(s9), mean(s10)))
+#sd(c(mean(s1),mean(s2),mean(s3),mean(s4),mean(s5),mean(s6),mean(s7),mean(s8),mean(s9), mean(s10)))
+```
+
+# Funções que sumariam dados
+
+```{r}
+# describe() {psych}
+describe(dataset$age, na.rm = TRUE) %>% pander()
+describe(dataset$age, na.rm = TRUE) %>% kable(format = "markdown")
+
+# summary() {base}
+dataset %>% select(age) %>% summary()
+
+# tableby() {arsenal}
+tableby(country ~ bdi_sum + bai_sum, # calcule as descritivas de bdi e bai por country 
+        test = FALSE,                # se FALSE,  não faz teste de significância 
+        data = dataset) %>%          # especificar base de dados
+  summary(text=TRUE)                 # tem que colocar text=TRUE senão aparecem uns códigos estranhos porque o R entende o espaço como código.                                            Assim a tabela fica bacaninha.
+
+## mesma função mas para a variável sexo.
+tableby(sex ~ bdi_sum + bai_sum,
+        test = FALSE,
+        data = dataset) %>% 
+  summary(text=TRUE)
+
+## Pode descrever apenas uma variável em função de sexo
+tableby(sex ~ age, data = dataset) %>% summary(text = TRUE)
+
+## Pode descrever somenta a variável contínua sem ser em função de alguma outra variável.
+tableby( ~ age + bdi_sum + bai_sum, data = dataset) %>% summary(text = TRUE)
+
+## Também pode dar as médias em função do sexo, estratificado por país
+tableby(sex ~ age + bdi_sum + bai_sum, data = dataset, strata = country) %>% summary(text = TRUE)
+
+## ou o contrário
+tableby(country ~ age + bdi_sum + bai_sum, data = dataset, strata = sex) %>% summary(text = TRUE)
+
+## Interação entre variáveis nominais
+
+tableby(interaction(sex, country) ~ bdi_sum + bai_sum,
+        test = FALSE,
+        data = dataset) %>% 
+  summary(text = TRUE)
+```
+
+# Representações gráficas
+
+### Gráficos de barras
+
+```{r}
+ggplot(dataset, aes(x = country)) + 
+  geom_bar() + 
+  labs(x = "país",
+       title = "Número de participantes nos países investigados")
+
+# alterando o eixo y para ser a % ao invés do N
+ggplot(dataset, aes(x = country, y = ..prop.., group = 1)) + 
+  geom_bar(stat = "count",fill = "dodgerblue4") +
+  geom_text(aes(label = scales::percent(round(..prop..,2)),
+                y = ..prop..),
+            stat = "count", 
+            color = "white",
+            size = 5, 
+            position = position_stack(vjust = 0.5)) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(x = "país",
+       y = "porcentagem",
+       title = "Número de participantes nos países investigados")
+
+# Alterando argumentos
+ggplot(dataset, 
+       aes(x=country, y=bai_sum)) +
+  geom_bar(stat = "summary", 
+           fun = mean, 
+           fill = "dodgerblue", 
+           color = "black",
+           na.rm = TRUE) + 
+  labs(title = "Média de Ansiedade por país",
+       x = "País", y = "Média de Ansiedade (BAI)")
+
+# adicionando outros elementos ao gráfico (barras de erro)
+ggplot(dataset, 
+       aes(x=country, y=bai_sum)) +
+  geom_bar(stat = "summary", 
+           fun = mean, 
+           fill = "violet", 
+           color = "black",
+           na.rm = TRUE) + 
+  stat_summary(geom = "errorbar", fun.data = mean_se,width = 0.5) +
+  labs(title = "Média de Ansiedade por país",
+       x = "País", y = "Média de Ansiedade (BAI)")
+
+# se modificar a posição do argumento fill, para dentro de aes e com o critério country... o gráfico fica colorido por país.
+ggplot(dataset, 
+       aes(x=country, y=bai_sum,fill = country)) +
+  geom_bar(stat = "summary", 
+           fun = mean, 
+           color = "black",
+           na.rm = TRUE) + 
+  stat_summary(geom = "errorbar", fun.data = mean_se,width = 0.5) +
+  labs(title = "Média de Ansiedade por país",
+       x = "País", y = "Média de Ansiedade (BAI)")
+```
+
+### Gráfico de setor (polar, pizza ou torta)
+
+```{r}
+dataset %>% 
+  count(country) %>% 
+  mutate(pct = n/sum(n)) %>% 
+  ggplot(.,aes(x = "", y = pct, fill = country)) + 
+  geom_col(color = "black") + 
+  geom_text(aes(label = scales::percent(round(pct,3))),
+            position = position_stack(vjust = 0.5)) + 
+  coord_polar(theta = "y") + 
+  labs(title = "Proporção de participantes em cada país")
+```
+
+### Gráficos para descrição de distribuição ou variabilidade
+
+```{r}
+# Histograma
+ggplot(data = dataset, aes(x = age)) + 
+  geom_histogram(bins = 30,color = "black", fill = "#61988E") + 
+  labs(y = "Frequência",
+    title = "Distribuição da idade dos participantes")
+
+# Densidade
+ggplot(data = dataset, aes(age)) + 
+  geom_density(fill = "#56b4e9") + 
+  labs("Distribuição da idade dos participantes")
+
+# Boxplot (diagrama de caixa e bigode)
+## Uma variável continua
+ggplot(data = dataset, aes(y=age,x="")) +
+  geom_boxplot(fill = "#56b4e9") + 
+  labs(title = "Distribuição da idade dos participantes")
+
+## uma variável continua e uma categórica (discreta)
+## no caso, bai_sum por país.
+ggplot(dataset,aes(x=country, y=bai_sum)) +
+  geom_boxplot(color = "black", fill = "#74c69d") + 
+  labs(title = "Distribuição das Pontuações no BAI, por país")
+
+
+# Combinação de gráficos usando o grid.arrange do pacote gridExtra
+
+gridExtra::grid.arrange(
+  
+# Gráfico 1
+ggplot(data = dataset, aes(age)) + 
+  geom_histogram(aes(y=..density..), alpha = 0.5, position = "identity") +
+  geom_density(alpha = 0.8, fill = "#56b4e9") + 
+  labs("Distribuição da idade dos participantes"),
+# Gráfico 2
+ggplot(data = dataset, aes(y=age,x="")) +
+  geom_boxplot(fill = "#56b4e9") + 
+  labs(x = "") +
+  coord_flip(),
+top = "Distribuição da idade dos participantes"
+)
+```
+
+### Gráficos de pontos
+
+```{r}
+ggplot(dataset, aes(x=age, y=bai_sum)) +
+  geom_point(color = "#9e2a2b") +
+  labs(title = "Idade x Ansiedade",
+       x = "Idade", y = "Ansiedade (BAI)")
+
+ggplot(dataset, aes(x=age, y=bai_sum)) +
+  geom_jitter(color = "#9e2a2b") +
+  labs(title = "Idade x Ansiedade",
+       x = "Idade", y = "Ansiedade (BAI)")
+
+# com a reta de regressão
+ggplot(dataset, aes(x=age, y=bai_sum)) +
+  geom_jitter(color = "#9e2a2b") +
+  geom_smooth(method = "lm") +
+  labs(title = "Idade x Ansiedade",
+       x = "Idade", y = "Ansiedade (BAI)")
+
+# ansiedade x depressão
+  
+ggplot(dataset, aes(x=bai_sum, y=bdi_sum)) +
+  geom_jitter(color = "#9e2a2b") +
+  geom_smooth(method = "lm") +
+  labs(title = "Depressão x Ansiedade",
+       x = "Depressão (BDI)", y = "Ansiedade (BAI)")
+
+# colocar os dois gráficos juntos na mesma imagem
+
+gridExtra::grid.arrange(
+  
+  #Gráfico 1
+  
+  ggplot(dataset, aes(x=age, y=bai_sum)) +
+  geom_point(color = "#9e2a2b") +
+  labs(title = "Idade x Ansiedade",
+       x = "Idade", y = "Ansiedade (BAI)"),
+
+  # Gráfico 2
+ggplot(dataset, aes(x=age, y=bai_sum)) +
+  geom_jitter(color = "#9e2a2b") +
+  labs(title = "Idade x Ansiedade",
+       x = "Idade", y = "Ansiedade (BAI)"),
+nrow = 1    # sem esse comando, os gráficos ficam 2 linhas
+)
+
+dataset %>% 
+filter(!is.na(sex)) %>% 
+  ggplot(.,aes(x = age, y = bai_sum, color = sex)) +
+  geom_jitter() +
+  geom_smooth(method = "lm")
+
+dataset %>% 
+  filter(!is.na(sex), !is.na(curso_ou_ano)) %>% 
+  ggplot(., aes(x = age, y=bai_sum,
+                fill = factor(curso_ou_ano),
+                color = sex,
+                shape = country)) + 
+  geom_jitter() +
+  geom_smooth(method = "lm")
+         
+```
