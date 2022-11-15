@@ -20,25 +20,27 @@ knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
 ```
 
 Esta disciplina tem como objetivo aprender a realizar análises estatísticas mais empregadas em pesquisas em psicologia, no ambiente de programação R.
-Inicialmente, vamos carregar (`install.packages()) e ativar (library()`) os pacotes que iremos utilizar na disciplina.
+Inicialmente, vamos carregar e ativar os pacotes que iremos utilizar na disciplina.
 
 # Carregamento dos pacotes
 
 ```{r}
-if(!require(tidyverse)) install.packages("tidyverse")
-if(!require(psych)) install.packages("psych")
-if(!require(knitr)) install.packages("knitr")
-if(!require(kableExtra)) install.packages("kableExtra")
-if(!require(expss)) install.packages("expss")
-if(!require(janitor)) install.packages("janitor")
-if(!require(pander)) install.packages('pander')
-if(!require(arsenal)) install.packages('arsenal')
-if(!require(moments)) install.packages('moments')
-if(!require(readr)) install.packages('moments')
-if(!require(readxl)) install.packages('readxl')
-if(!require(descr)) install.packages("descr")
-if(!require(rcompanion)) install.packages("rcompanion")
-if(!require(rstatix)) install.packages("rstatix")
+# if(!require(tidyverse)) install.packages("tidyverse")
+# if(!require(psych)) install.packages("psych")
+# if(!require(knitr)) install.packages("knitr")
+# if(!require(kableExtra)) install.packages("kableExtra")
+# if(!require(expss)) install.packages("expss")
+# if(!require(janitor)) install.packages("janitor")
+# if(!require(pander)) install.packages('pander')
+# if(!require(arsenal)) install.packages('arsenal')
+# if(!require(moments)) install.packages('moments')
+# if(!require(readr)) install.packages('moments')
+# if(!require(readxl)) install.packages('readxl')
+# if(!require(descr)) install.packages("descr")
+# if(!require(rcompanion)) install.packages("rcompanion")
+# if(!require(rstatix)) install.packages("rstatix")
+
+# install.packages("Rcpp")
 # Ativação dos pacotes ====
 
 library(tidyverse)
@@ -47,18 +49,22 @@ library(janitor)
 library(psych)
 library(knitr)
 library(arsenal)
-library(rstatix)
-library(GPArotation)
+# library(rstatix)
+# library(GPArotation)
 # library(kableExtra)
 # library(expss)
 # library(readxl)
 # library(readr)
 # library(corrplot)
+
 ```
 
 # Importar banco de dados
 
-Inicialmente vamos trabalhar com o banco de dados `dataset_mapfre.csv`, clique [aqui](https://docs.google.com/spreadsheets/d/1G0lQKeU0atMk3Q4wO5zz4HdvReRxKS68vx_Q0WbB37A/edit?usp=sharing) para baixá-lo.
+Inicialmente vamos trabalhar com o banco de dados `dataset_mapfre.csv`, clique [aqui](https://docs.google.com/spreadsheets/d/1G0lQKeU0atMk3Q4wO5zz4HdvReRxKS68vx_Q0WbB37A/edit?usp=sharing) para baixá-lo. Salve-o como um dataframe chamado `dataset`. 
+
+Dica: Utilize a função `read.csv`, cujo argumento `stringsAsFactors=TRUE` já salva as variáveis categóricas como fator.
+
 Esse banco de dados se refere ao artigo "[Sintomas de depressão e ansiedade em uma amostra representativa de universitários espanhóis, portugueses e brasileiros](https://drive.google.com/file/d/1qa0iCDm2DRvh3M6a2k7ENGahceDAlPIg/view?usp=sharing)".
 Sugere-se a leitura desse artigo para a compreensão dos dados.
 
@@ -73,17 +79,62 @@ glimpse(dataset)
 
 # Estatística descritiva
 
-## Frequências
+## Tabelas de frequência com a função `table()`
 
 ```{r}
+# Tabulando dados
 
-# Função count()
+table(dataset$country)
+table1 <- table(dataset$country, dataset$sex)
+table1 %>% pander()
+table1 %>% kable()
+
+# Tabulação em dataframe com porcentagens
+table(dataset$country) %>% 
+  as.data.frame() %>% 
+  mutate("%" = Freq*100/sum(Freq)) %>% 
+  kable()
+
+table(dataset$country, dataset$sex) %>% 
+  as.data.frame() %>% 
+  mutate("%" = Freq*100/sum(Freq)) %>% 
+  kable()
+
+table(dataset$country, dataset$sex, dataset$bai_class) %>% 
+  as.data.frame() %>% 
+  mutate("%" = Freq*100/sum(Freq)) %>% 
+  kable()
+```
+
+## Tabelas de frequência com a função `count()`
+```{r}
+# Contar uma variável
+dataset %>% 
+  count(sex) %>% 
+  mutate("%" = n*100/sum(n)) %>%
+  kable()
+
+# Contar uma variável x em função de uma y, com totalização integral.
+
+dataset %>% 
+  count(sex,country) %>% 
+  mutate("%" = n*100/sum(n)) %>%
+  kable()
+
+# Contar uma variável x em função de outra y, com totalização pelas categorias de x. 
+
 dataset %>% 
   filter(!is.na(sex)) %>% 
   group_by(sex) %>% 
   count(country) %>% 
   mutate(porc = n/sum(n)*100) %>% 
-  pander()
+  kable()
+```
+
+## Tabelas de frequência com o pacote `janitor`
+```{r}
+# install.packages("janitor")
+# library(janitor)
 
 # usando a função tabyl() do pacote janitor
 # contar quantas pessoas de cada país.
@@ -97,6 +148,12 @@ dataset %>%             # pegar o dataframe dataset
   adorn_totals() %>%    # acrescente uma linha com os totais
   pander()              # utilize o pander para fazer a tabela
 
+dataset %>%             # pegar o dataframe dataset
+  tabyl(country) %>%    # use a função tabyl para tabular as categorias de país
+  adorn_totals() %>%    # acrescente uma linha com os totais
+  adorn_pct_formatting(digits = 1) %>% 
+  pander()              # utilize o pander para fazer a tabela
+
 # contar por gênero e país (retirando NAs)
 dataset %>% 
   filter(!is.na(sex)) %>% 
@@ -104,12 +161,28 @@ dataset %>%
   adorn_totals() %>% 
   pander()
 
-# contar por gênero e país, acrescentando funções
 dataset %>% 
   filter(!is.na(sex)) %>% 
-  tabyl(country,sex) %>%           # função de tabulação do janitor
+  tabyl(sex,country) %>% 
+  adorn_totals(c("row","col")) %>% 
+  pander()
+
+dataset %>% 
+  drop_na(sex) %>%        # outra forma de eliminar os NAs
+  tabyl(sex,country) %>% 
+  adorn_totals(c("row","col")) %>% 
+  pander()
+
+dataset %>% 
+  tabyl(sex,country,show_na = FALSE) %>% # eliminar NAs com argumento do próprio janitor
+  adorn_totals(c("row","col")) %>% 
+  pander()
+
+# contar por gênero e país, acrescentando funções
+dataset %>% 
+  tabyl(country,sex, show_na = FALSE) %>%           # função de tabulação do janitor
   adorn_totals(c("row","col")) %>% # adiciona o N
-  adorn_percentages("row") %>%     # adiciona porcentagens
+  adorn_percentages("all") %>%     # adiciona porcentagens (One of "row", "col", or "all".)
   adorn_pct_formatting(
     rounding = "half up",          # arredondar do cinco pra cima
     digits = 0) %>%                # número de casas decimais
@@ -119,15 +192,133 @@ dataset %>%
 # adição de um qui-quadrado para a distribuição
 # para rodar essa análise tem que tirar os totais.
 
-# dataset %>% 
-  # filter(!is.na(sex)) %>% 
-  # tabyl(country,sex) %>%           # função de tabulação do janitor
-  # adorn_totals(c("row","col")) %>% # adiciona o N
-  # chisq.test()
+dataset %>%
+  filter(!is.na(sex)) %>%
+  tabyl(country,sex) %>%           # função de tabulação do janitor
+  adorn_totals(c("row","col")) %>% # adiciona o N
+  chisq.test()
   # pander()                         # melhora a visualização dos dados.
 ```
 
-#### Exercício
+
+## Gráficos de frequência com o pacote `ggplot2`
+
+### Gráficos de barras
+```{r}
+
+# Gráfico mais simples possível (contagem simples)
+ggplot(dataset, aes(x = country)) + 
+  geom_bar(color = "black", fill = "dodgerblue")
+
+# Gráfico de barras mais complexo (4)
+
+## Camada 1 - gráfico de barras com algumas melhorias visuais
+
+ggplot(data = dataset,             # base de dados
+       mapping = aes(x = country,  # informação que vai no eixo x
+                     y = ..prop.., # informação que vai no eixo y: forma de indicar que é a proporção
+                     group = 1)) + 
+  geom_bar(stat = "count",         # definir que a estatística parte da contagem
+           fill = "dodgerblue4",   # cor das barras
+           width = .5,             # espessura das barras
+           color = "black") +      # cor da borda das barras
+
+## Camada 2 - colocar eixo y em porcentagem
+    scale_y_continuous(labels = scales::percent_format()) +
+
+## Camada 3 - colocar o valor das porcentagens nas barras
+  geom_text(aes(label = scales::percent(..prop..),
+                y = ..prop..),
+            stat = "count", 
+            color = "white",
+            size = 5, 
+            position = position_stack(vjust = 0.5)) +
+  
+## Camada 4 - Titulos, labels
+    labs(x = "País",
+       y = "Porcentagem",
+       title = "Número de participantes por país",
+       subtitle = "Brasil, Portugal e Espanha",
+       caption = "Núcleo de Estudos em Avaliação Psicológica - NEAP")
+
+# Gráfico de barras empilhadas (utilizando o geom_col)
+# OBS.: O geom_col é parecido com o geom_bar, mas o primeiro só aceita dados diretos.
+# Por isso, nesse caso, é preciso preparar o dataframe antes.
+
+## Preparação do data frame
+dataset %>% 
+  count(country) %>% 
+  mutate(pct = n/sum(n)) %>% 
+## Camada 1
+  ggplot(.,aes(x = "", 
+               y = pct, 
+               fill = country)) + # se o argumento fill for colocado dentro de aes, sai uma cor por barra 
+  geom_col(color = "black") +
+## Camada 2
+  geom_text(aes(label = scales::percent(round(pct,3))),
+            position = position_stack(vjust = 0.5)) + 
+## Camada 3
+  labs(title = "Proporção de participantes por país")
+```
+
+### Gráficos de pizza
+```{r}
+# é um gráfico de barras empilhadas transformado em polar
+
+## preparação dos dados
+dataset %>% 
+  count(country) %>% 
+  mutate(pct = n/sum(n)) %>%
+# Camada 1
+  ggplot(.,aes(x = "", y = pct, fill = country)) + 
+  geom_col(color = "black") + 
+# Camada 2
+  geom_text(aes(label = scales::percent(round(pct,3))),
+            position = position_stack(vjust = 0.5)) + 
+# Camada 3
+  coord_polar(theta = "y") +
+# Camada 4 
+  labs(title = "Proporção de participantes em cada país") + 
+   xlab(NULL) + 
+   ylab(NULL)
+
+```
+
+### Gráficos de linhas
+```{r}
+# Contar categorias dentro de uma variável (nível de depressão)
+
+dataset %>%
+  drop_na(bdi_class) %>% 
+  ggplot() +
+  geom_line(aes(x = bdi_class, group = 1), stat = "count", size = 1.2) +
+  labs(title = "Classificações de Depressão - Frequências",
+       x = "Classificação",
+       y = "Frequências")
+
+# Misturando variáveis (frequência de classificações por gênero)
+
+## preparação dos dados
+dataset %>%
+  drop_na(bdi_class,sex) %>% 
+  group_by(sex) %>% 
+  count(bdi_class,sex) %>%
+  mutate(porc = n*100/(sum(n))) %>% 
+## camada 1
+  ggplot() +
+  geom_line(aes(x = bdi_class, 
+                y = porc, 
+                group = sex, 
+                color = sex), 
+            size = 1.0) +
+## camada 2
+  labs(title = "Classificações de Depressão por gênero",
+       x = "Classificação",
+       y = "Frequências")
+```
+
+
+### Exercícios
 
 Utilize o dataframe `dataset` para realizar os exercícios abaixo:
 
@@ -156,10 +347,8 @@ dataset %>%
 A descrição dos dados geralmente é realizada pelas seguintes estatísticas: Média, desvio padrão, mediana, amplitude, mínimo, máximo, assimetria e curtose.
 Para calculá-las podemos usar funções específicas para cada uma ou funções que realizam um conjunto de análises descritivas.
 
-### Funções específicas
-
+### Medidas de tendência central
 ```{r}
-
 ## mean()
 mean(dataset$age, na.rm = TRUE)
 
@@ -168,7 +357,10 @@ sd(dataset$age, na.rm = TRUE)
 
 ## median()
 median(dataset$age, na.rm = TRUE)
+```
 
+### Medidas de dispersão
+```{r}
 ## min()
 min(dataset$age, na.rm = TRUE)
 
@@ -183,11 +375,12 @@ moments::skewness(dataset$age, na.rm = TRUE) # pacote moments
 skew(dataset$age, na.rm = TRUE)              # pacote psych
 
 ## kurtosis()
-moments::kurtosis(dataset$age, na.rm = TRUE) # pacote moments
+# moments::kurtosis(dataset$age, na.rm = TRUE) # pacote moments
 kurtosi(dataset$age, na.rm = TRUE)           # pacote psych
+
 ```
 
-#### Exercícios
+### Exercícios
 
 Calcule as estatísticas descritivas: média, desvio padrão, mediana, valores mínimo e máximo, amplitude, assimetria e curtose das pontuações em depressão (bdi_sum) e ansiedade (bai_sum).
 Crie uma tabela (dataframe) com esses valores.
@@ -252,6 +445,260 @@ data.frame(Estatísticas =       # data.frame() é a função para criar uma tab
   pander()
 ```
 
+## Funções que sumarisam dados
+
+```{r}
+# summary() {base}
+dataset %>% select(age) %>% summary()
+
+# summarise() {tidyverse}
+dataset %>% 
+  drop_na(sex,age,bai_sum,bdi_sum) %>%
+  group_by(sex) %>% 
+  summarise(idade = mean(age),
+            BAI = mean(bai_sum),
+            BDI = mean(bdi_sum))
+
+# describe() {psych}
+describe(dataset$age, na.rm = TRUE) %>% pander()
+describe(dataset$age, na.rm = TRUE) %>% kable(format = "markdown")
+
+# tableby() {arsenal}
+tableby(country ~ bdi_sum + bai_sum, # calcule as descritivas de bdi e bai por country 
+        test = FALSE,                # se FALSE,  não faz teste de significância 
+        data = dataset) %>%          # especificar base de dados
+  summary(text=TRUE)                 # tem que colocar text=TRUE senão aparecem uns códigos estranhos porque o R entende o espaço como código. Assim a tabela fica bacaninha.
+
+## mesma função mas para a variável sexo.
+tableby(sex ~ bdi_sum + bai_sum,
+        test = FALSE,
+        data = dataset) %>% 
+  summary(text=TRUE)
+
+## Pode descrever apenas uma variável em função de sexo
+tableby(sex ~ age, data = dataset) %>% summary(text = TRUE)
+
+## Pode descrever somenta a variável contínua sem ser em função de alguma outra variável.
+tableby( ~ age + bdi_sum + bai_sum, data = dataset) %>% summary(text = TRUE)
+
+## Também pode dar as médias em função do sexo, estratificado por país
+tableby(sex ~ age + bdi_sum + bai_sum, data = dataset, strata = country) %>% summary(text = TRUE)
+
+## ou o contrário
+tableby(country ~ age + bdi_sum + bai_sum, data = dataset, strata = sex) %>% summary(text = TRUE)
+
+## Interação entre variáveis nominais
+
+tableby(interaction(sex, country) ~ bdi_sum + bai_sum,
+        test = FALSE,
+        data = dataset) %>% 
+  summary(text = TRUE)
+```
+
+## Gráficos de medidas de tendência central e de dispersão
+
+### Gráficos de barras
+
+```{r}
+# Gráfico de barras (step1) - Gráfico básico
+
+ggplot() +
+    # Camada 1 - Barras
+    geom_bar(data = dataset,
+           mapping = aes(x = country,
+                         y = bai_sum),
+           stat = "summary",
+           fun = mean,
+           na.rm = TRUE)
+
+# Gráfico de barras (step1 com embelezamento)
+
+ggplot() +
+    # Camada 1 - Barras com embelezamento
+    geom_bar(data = dataset,
+           mapping = aes(x = country,
+                         y = bai_sum),
+           stat = "summary",
+           fun = mean,
+           na.rm = TRUE,
+           fill = "dodgerblue",
+           color = "black")
+
+
+# Gráfico de barras (step2): Básico + Outros geoms (barra de erros e texto)
+
+médias_BAI <- # dataframe com as informações que eu vou inserir na camada 2 do gráfico
+dataset %>% group_by(country) %>% summarise(mean = mean(bai_sum, na.rm = TRUE))
+
+ggplot() +
+  # Camada 1 - Barras com embelezamento
+  geom_bar(data = dataset,
+           mapping = aes(x = country,
+                         y = bai_sum),
+           stat = "summary",
+           fun = mean,
+           na.rm = TRUE,
+           fill = "dodgerblue",
+           color = "black") +
+  # Camada 2 - Barra de Erro
+  stat_summary(data = dataset, 
+               mapping = aes(x=country, y=bai_sum),
+               geom = "errorbar",
+               fun.data = mean_se,
+               width = 0.5) +
+  # Camada 3 - Texto (valor das médias dentro das barras)
+  geom_text(data = médias_BAI,
+            mapping = aes(x = country,
+                          y = mean,
+                          label = format(mean,digits = 1,nsmall = 1)),
+            fontface = "bold", size = 5, vjust = 3)
+
+# Gráfico de barras (step3): Básico + Texto + Complementos (lables, themes e coord)
+
+ggplot() +
+  # Camada 1 - Barras com embelezamento
+  geom_bar(data = dataset,
+           mapping = aes(x = country,
+                         y = bai_sum),
+           stat = "summary",
+           fun = mean,
+           na.rm = TRUE,
+           fill = "dodgerblue",
+           color = "black") +
+  # Camada 2 - Barra de Erro
+  stat_summary(data = dataset, mapping = aes(x=country, y=bai_sum),
+               geom = "errorbar",fun.data = mean_se,width = 0.5) +
+  # Camada 3 - Texto (valor das médias dentro das barras)
+  geom_text(data = médias_BAI,
+            mapping = aes(x = country,
+                          y = mean,
+                          label = format(mean,digits = 1,nsmall = 1)),
+            fontface = "bold", size = 5, vjust = 3) +
+  # Camada 4 - Labels (título, subtítulo, eixos, caption, theme, coord)
+  coord_cartesian(ylim = c(0,10)) +   # mudar escala do eixo y
+  # coord_flip() + (se ligar, é necessário ajustar vjust e hjust)
+  labs(title = "Média de Ansiedade por país",
+       subtitle = "Ansidade medida pelo BAI",
+       x = "País",
+       y = "Média de Ansiedade (BAI)",
+       caption = "Núcleo de Estudos em Avaliação Psicológica") + 
+  theme_gray()
+
+# colorindo por país
+# tem que colocar o fill dentro do aes
+ggplot() +
+  # Camada 1 - Barras com embelezamento
+  geom_bar(data = dataset,
+           mapping = aes(x = country,
+                         y = bai_sum,
+           fill = country),
+           stat = "summary",
+           fun = mean,
+           na.rm = TRUE,
+           color = "black") +
+  # Camada 2 - Barras de erro
+  stat_summary(data = dataset, 
+               mapping = aes(x=country, y=bai_sum),
+               geom = "errorbar",
+               fun.data = mean_se,width = 0.5,
+               na.rm = TRUE) +
+  # Camada 3 - Texto (valor das médias dentro das barras)
+  geom_text(data = médias_BAI,
+            mapping = aes(x = country,
+                          y = mean,
+                          label = format(mean,digits = 1,nsmall = 1)),
+            fontface = "bold", size = 5, vjust = 3) + # mudar vjust e hjust
+  # Camada 4 - Labels (título, subtítulo, eixos, caption, theme, coord)
+  coord_cartesian(ylim = c(0,10)) +   # mudar escala do eixo y
+  # coord_flip() +                      # gráfico horizontal
+  labs(title = "Média de Ansiedade por país",
+       subtitle = "Ansidade medida pelo BAI",
+       x = "País",
+       y = "Média de Ansiedade (BAI)",
+       caption = "Núcleo de Estudos em Avaliação Psicológica") + 
+  theme_gray()
+```
+
+### Boxplot
+```{r}
+# Gráfico básico
+ggplot(data = dataset, 
+       mapping = aes(x = country, y = bai_sum)) +
+  geom_boxplot(fill = "violet") +
+  labs(title = "Boxplots BAI por país",
+       x = "Países",
+       y = "Ansiedade_BAI")
+
+# Gráfico mais completo 
+## Dataframe com informações sobre mediana
+median_boxplot <- 
+  dataset %>% 
+  group_by(country) %>% 
+  summarise(mediana = median(bai_sum, na.rm = TRUE))
+
+## Gráfico
+### camada 1
+ggplot() +
+  geom_boxplot(data = dataset, 
+               mapping = aes(x = country, y = bai_sum, fill = country),
+               show.legend = FALSE, 
+               na.rm = TRUE) +
+### camada 2
+  geom_text(data = median_boxplot,
+            aes(x = country, 
+                y = mediana,
+                label = format(mediana, digits = 1, nsmall = 1)),
+            fontface = "bold", size = 4, vjust = -.5) +
+### camada 3  
+  labs(title = "Boxplots BAI por país",
+       x = "Países",
+       y = "Ansiedade_BAI") +
+### camada 4
+  theme_bw()
+```
+
+# Gráfico de pontos
+```{r}
+ggplot(dataset, aes(x = country, y = bai_sum)) +
+  geom_point(stat = "summary",fun = "mean",na.rm = TRUE)
+
+# outra forma de construir o mesmo gráfico
+ggplot(dataset, aes(x = country, y = bai_sum)) +
+  stat_summary(geom = "point", fun = "mean")
+
+# Inserir uma barra de erro
+
+ggplot(dataset,aes(x = country, y = bai_sum)) +
+  geom_point(stat = "summary", fun = "mean", size = 3) +
+  geom_errorbar(stat = "summary", fun.data = "mean_se", width = 0.3)
+
+ggplot(dataset,aes(x = country, y = bai_sum)) +
+  geom_point(stat = "summary", fun = "mean", na.rm = TRUE) +
+  geom_errorbar(stat = "summary", fun.data = "mean_se", width = 0.3) + 
+  coord_cartesian(ylim = c(0,12))
+
+# install.packages("pacman")
+pacman::p_load(ggpubr) # ggpubr é um pacote que adiciona algumas funções ao ggplot
+                       # com isso fica possível usar a função mean_ci
+                       # para calcular intervalo de confiança.
+
+# OBS: a função p_load do pacote pacman verifica se um pacote está instalado e instala se for necessário.
+
+# Barrinha de intervalo de confiança
+ggplot(dataset,aes(x = country, y = bai_sum)) +
+  geom_point(stat = "summary", fun = "mean", na.rm = TRUE) +
+  geom_errorbar(stat = "summary", fun.data = "mean_ci", width = 0.3, na.rm = TRUE) + 
+  coord_cartesian(ylim = c(5,12))
+
+# Barrinha de desvio padrão
+ggplot(dataset,aes(x = country, y = bai_sum)) +
+  geom_point(stat = "summary", fun = "mean", na.rm = TRUE) +
+  geom_errorbar(stat = "summary", fun.data = "mean_sd", width = 0.3, na.rm = TRUE) + 
+  coord_cartesian(ylim = c(0,20))
+
+```
+
+
 # Distribuição normal
 
 A distribuição normal (ou distribuição de Gauss) é uma distribuição de probabilidades, isto é ela indica a probabilidade de um certo valor ser obtido.
@@ -309,7 +756,7 @@ distalea_mean_list <- c(mean(sample(distalea, 100, replace = FALSE)),
                         mean(sample(distalea, 100, replace = FALSE)),
                         mean(sample(distalea, 100, replace = FALSE)))
 
-hist(distalea_mean_list)
+hist(distalea_mean_list, breaks = 50)
 
 # Criar / Extrair amostra com valores inteiros
 
@@ -392,108 +839,7 @@ mean(médias) + 2*sd(médias) # dois desvios abaixo da média
 #mean(c(mean(s1),mean(s2),mean(s3),mean(s4),mean(s5),mean(s6),mean(s7),mean(s8),mean(s9), mean(s10)))
 #sd(c(mean(s1),mean(s2),mean(s3),mean(s4),mean(s5),mean(s6),mean(s7),mean(s8),mean(s9), mean(s10)))
 ```
-
-# Funções que sumariam dados
-
-```{r}
-# describe() {psych}
-describe(dataset$age, na.rm = TRUE) %>% pander()
-describe(dataset$age, na.rm = TRUE) %>% kable(format = "markdown")
-
-# summary() {base}
-dataset %>% select(age) %>% summary()
-
-# tableby() {arsenal}
-tableby(country ~ bdi_sum + bai_sum, # calcule as descritivas de bdi e bai por country 
-        test = FALSE,                # se FALSE,  não faz teste de significância 
-        data = dataset) %>%          # especificar base de dados
-  summary(text=TRUE)                 # tem que colocar text=TRUE senão aparecem uns códigos estranhos porque o R entende o espaço como código.                                            Assim a tabela fica bacaninha.
-
-## mesma função mas para a variável sexo.
-tableby(sex ~ bdi_sum + bai_sum,
-        test = FALSE,
-        data = dataset) %>% 
-  summary(text=TRUE)
-
-## Pode descrever apenas uma variável em função de sexo
-tableby(sex ~ age, data = dataset) %>% summary(text = TRUE)
-
-## Pode descrever somenta a variável contínua sem ser em função de alguma outra variável.
-tableby( ~ age + bdi_sum + bai_sum, data = dataset) %>% summary(text = TRUE)
-
-## Também pode dar as médias em função do sexo, estratificado por país
-tableby(sex ~ age + bdi_sum + bai_sum, data = dataset, strata = country) %>% summary(text = TRUE)
-
-## ou o contrário
-tableby(country ~ age + bdi_sum + bai_sum, data = dataset, strata = sex) %>% summary(text = TRUE)
-
-## Interação entre variáveis nominais
-
-tableby(interaction(sex, country) ~ bdi_sum + bai_sum,
-        test = FALSE,
-        data = dataset) %>% 
-  summary(text = TRUE)
-```
-
-# Representações gráficas
-
-### Gráficos de barras
-
-```{r}
-ggplot(dataset, aes(x = country)) + 
-  geom_bar() + 
-  labs(x = "país",
-       title = "Número de participantes nos países investigados")
-
-# alterando o eixo y para ser a % ao invés do N
-ggplot(dataset, aes(x = country, y = ..prop.., group = 1)) + 
-  geom_bar(stat = "count",fill = "dodgerblue4") +
-  geom_text(aes(label = scales::percent(round(..prop..,2)),
-                y = ..prop..),
-            stat = "count", 
-            color = "white",
-            size = 5, 
-            position = position_stack(vjust = 0.5)) +
-  scale_y_continuous(labels = scales::percent_format()) +
-  labs(x = "país",
-       y = "porcentagem",
-       title = "Número de participantes nos países investigados")
-
-# Alterando argumentos
-ggplot(dataset, 
-       aes(x=country, y=bai_sum)) +
-  geom_bar(stat = "summary", 
-           fun = mean, 
-           fill = "dodgerblue", 
-           color = "black",
-           na.rm = TRUE) + 
-  labs(title = "Média de Ansiedade por país",
-       x = "País", y = "Média de Ansiedade (BAI)")
-
-# adicionando outros elementos ao gráfico (barras de erro)
-ggplot(dataset, 
-       aes(x=country, y=bai_sum)) +
-  geom_bar(stat = "summary", 
-           fun = mean, 
-           fill = "violet", 
-           color = "black",
-           na.rm = TRUE) + 
-  stat_summary(geom = "errorbar", fun.data = mean_se,width = 0.5) +
-  labs(title = "Média de Ansiedade por país",
-       x = "País", y = "Média de Ansiedade (BAI)")
-
-# se modificar a posição do argumento fill, para dentro de aes e com o critério country... o gráfico fica colorido por país.
-ggplot(dataset, 
-       aes(x=country, y=bai_sum,fill = country)) +
-  geom_bar(stat = "summary", 
-           fun = mean, 
-           color = "black",
-           na.rm = TRUE) + 
-  stat_summary(geom = "errorbar", fun.data = mean_se,width = 0.5) +
-  labs(title = "Média de Ansiedade por país",
-       x = "País", y = "Média de Ansiedade (BAI)")
-```
-
+=================================
 ### Gráfico de setor (polar, pizza ou torta)
 
 ```{r}
