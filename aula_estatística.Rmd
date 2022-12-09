@@ -41,13 +41,15 @@ Inicialmente, vamos carregar e ativar os pacotes que iremos utilizar na discipli
 # if(!require(rstatix)) install.packages("rstatix")
 
 # install.packages("Rcpp")
+
+install.packages("GPArotation")
 # Ativação dos pacotes ====
 
 library(tidyverse)
 library(psych)
 library(arsenal)
 # library(rstatix)
-# library(GPArotation)
+library(GPArotation)
 library(corrplot)
 library(janitor)
 library(pander)
@@ -905,9 +907,9 @@ mod$coefficients %>% as.data.frame() %>% pander()
 
 ## Análise fatorial exploratória
 
-A análise fatorial exploratório é um recurso estatístico complexo, que usa, na sua base, coeficientes de correlação (ou de covariância) e regressões, com o objetivo de identificar conjuntos de variáveis que se comportam de forma semelhante ao longo dos sujeitos.
+A análise fatorial exploratório é um recurso estatístico complexo, que usa, na sua base, coeficientes de correlação (ou de covariância) e regressões, com o objetivo de identificar conjuntos de variáveis (itens) que se comportam de forma semelhante ao longo dos sujeitos.
 Essas variáveis são, geralmente, itens de um teste.
-Então, comportar-se de forma semelhante ao longo dos sujeitos quer dizer que esse grupo de variáveis (itens) apresentam magnitudes semelhantes no mesmo sujeito.
+Então, comportar-se de forma semelhante ao longo dos sujeitos quer dizer que esse grupo de variáveis (itens) apresenta magnitudes semelhantes no mesmo sujeito.
 Por exemplo, um grupo de itens que é respondido com valores altos pelo sujeito s1, baixos pelo sujeito s2, médios pelo sujeito s3, e assim por diante....
 não importa quem responda, as respostas são sempre coerentes entre si (baixas, médias ou altas).
 
@@ -929,6 +931,7 @@ O KMO indica se há correlações suficientes para a realização da análise fa
 Pode variar de zero a 1 e **deve ser superior a 0,5** para que se possa prosseguir com a análise de forma adequada.
 
 ```{r}
+names(big_five)
 big_five %>% select(9:58) %>% KMO()
 ```
 
@@ -971,6 +974,7 @@ A análise paralela é um procedimento que compara eigenvalues obtidos com os da
 Seleciona-se o número de fatores que apresentaram eigenvalues experimentias superiores aos aleatórios.
 
 ```{r}
+parallel_bigfive <- 
 big_five %>% select(9:58) %>% fa.parallel()
 ```
 
@@ -993,7 +997,10 @@ Isso pode ser observado na plotagem das correlações entre os itens.
 
 ```{r}
 # matriz de correlações usando o corrplot
-corrplot::corrplot(corr.test(big_five[,9:58])$r, order = "original", type = "lower",
+
+corrplot::corrplot(corr.test(big_five[,9:58])$r, 
+                   order = "original",
+                   type = "lower",
                    title = "Correlação entre os itens - big_five")
 ```
 
@@ -1043,5 +1050,119 @@ data.frame(Fatores = c('Extroversão',
                      rely_A$omega.tot, 
                      rely_C$omega.tot, 
                      rely_O$omega.tot)) %>% pander()
+```
+
+# teste t
+
+## Média comparada com uma referência.
+Eu sei que a média de neuroticismo mundial é 3,09 e quero saber se a média brasileira é significativamente diferente ou não da média mundial
+```{r}
+names(big_five)
+
+big_five_BR <- big_five %>% 
+  filter(país == "BR")
+  
+glimpse(big_five_BR)  
+
+t.test(big_five_BR$neur, mu = 3.09)
+```
+
+Encontrou-se uma diferença estatisticamente significativa entre as médias (t = 4,0006, df = 174, p-value = 9,331e-05), em que os participantes brasileiros apresentaram um valor mais elevado (neur_BR = 3,335) do que o de participantes de outros países (neur_outros = 3,09) no traço de neuroticismo.
+
+## Representação em tabela
+```{r}
+big_five %>% 
+  drop_na(neur, país) %>% 
+  mutate(país_dic = ifelse(país == "BR", "BR", "OU")) %>% 
+  group_by(país_dic) %>% 
+  summarise(média = mean(neur),
+            "Desvio padrão" = sd(neur)) %>% pander()
+```
+
+## Representação gráfica
+```{r}
+big_five %>% mutate(País = ifelse(país == "BR", "BR", "OU")) %>% drop_na %>% 
+  ggplot(aes(x = País, y = neur)) +
+  geom_boxplot()
+  
+```
+
+
+## T-teste para amostras independentes
+```{r}
+# 1º passo: verificar a homogeneidade de variâncias entre as categorias da variável independente.
+# Teste de Levene - pacote car
+install.packages("car")
+
+big_five_BR %>% select(gênero) %>% distinct()
+
+car::leveneTest(extr~gênero,big_five_BR,center=mean)
+car::leveneTest(neur~gênero,big_five_BR,center=mean)
+car::leveneTest(amab~gênero,big_five_BR,center=mean)
+car::leveneTest(cons~gênero,big_five_BR,center=mean)
+car::leveneTest(aber~gênero,big_five_BR,center=mean)
+
+big_five_BR_nona <- big_five_BR %>% filter(gênero == "Feminino" | gênero == "Masculino")
+
+t_extr <- t.test(extr~gênero, big_five_BR_nona,var.equal = TRUE)
+t_neur <- t.test(neur~gênero, big_five_BR_nona,var.equal = TRUE)
+t_amab <- t.test(amab~gênero, big_five_BR_nona,var.equal = TRUE)
+t_cons <- t.test(cons~gênero, big_five_BR_nona,var.equal = TRUE)
+t_aber <- t.test(aber~gênero, big_five_BR_nona,var.equal = TRUE)
+```
+
+# T-teste para amostras pareadas
+```{r}
+df <- data.frame(id = paste("s",1:30,sep=""),
+                 pre_teste = rnorm(30, mean = 5.14, sd = 1.23),
+                 pos_teste = rnorm(30, mean = 6.78, sd = 0.93))
+
+t_par <- t.test(df$pre_teste,df$pos_teste, paired = TRUE)
+
+mean(df$pre_teste)
+mean(df$pos_teste)
+
+```
+
+# ANOVA de uma via
+```{r}
+names(rwas)
+distinct(rwas, education)
+
+readRDS("rwas.rds")
+
+anova_auth <- aov( auth ~ education, rwas)
+summary(anova_auth)
+
+one_way_anova_tab <- 
+tableby(education ~ auth,
+        digits = 1,
+        test = FALSE,
+        rwas)
+summary(one_way_anova_tab)
+```
+
+# ANOVA por medidas repetidas
+```{r}
+install.packages("ez")
+library(ez)
+
+df_aov_mr <- data.frame(id = paste("s",1:100,sep = ""),
+                        v1 = round(rnorm(n=100, mean = -1.2, sd = 0.54),digits = 3),
+                        v2 = round(rnorm(n=100, mean = -0.7, sd = 0.52),digits = 3),
+                        v3 = round(rnorm(n=100, mean = -0.1, sd = 0.57),digits = 3),
+                        v4 = round(rnorm(n=100, mean =  0.4, sd = 0.55),digits = 3),
+                        v5 = round(rnorm(n=100, mean =  0.5, sd = 0.54),digits = 3))
+
+df_aov1 <- df_aov_mr %>% pivot_longer(cols = 2:6,            # varáveis a serem unidas 
+                                      names_to = "tempo",    # nome dessa nova variável
+                                      values_to = "valores") # valores da nova variável
+
+mod_df_aov1 <- ezANOVA(data = df_aov1,
+                       dv = valores,
+                       wid = id,
+                       within = tempo,
+                       detailed = TRUE,
+                       type = 3)
 ```
 

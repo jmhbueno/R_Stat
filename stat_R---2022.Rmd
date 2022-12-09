@@ -56,7 +56,6 @@ library(knitr)
 # library(expss)
 # library(readxl)
 # library(readr)
-
 ```
 
 # Importar banco de dados
@@ -78,7 +77,22 @@ dataset <- read.csv("dataset_mapfre.csv",encoding="UTF-8",stringsAsFactors=TRUE)
 glimpse(dataset)
 ```
 
-# Estatística descritiva
+# Estatísticas
+
+Este curso está didaticamente dividido em três tipos de análises estatísticas:
+
+1.  Estatísticas descritivas, que incluem as medidas de frequência, de tendência central e de dispersão.
+2.  Estatísticas que ajudam a compreender associação entre variáveis: qui-quadrado, correlação, regressão e análise fatorial.
+3.  Efeitos de grupo em outras variáveis: t-teste e análises de variância.
+
+As próximas seções apresentam recursos para a realização dessas análises.
+
+# Estatísticas descritivas de frequência
+
+A forma mais simples de descrever algo quantitativamente é contando o número de ocorrências.
+Por exemplo, podemos descrever uma amostra quanto à escolaridade, contando as ocorrências de ensino fundamental, ensino médio e ensino superior.
+As formas mais comuns para sumariar esses dados de forma mais amigável para o leitor é através de **tabelas** e **gráficos**.
+Vamos ver essas formas a seguir.
 
 ## Tabelas de frequência com a função `table()`
 
@@ -322,17 +336,7 @@ dataset %>%
        y = "Frequências")
 ```
 
-# Estatísticas
-
-Este curso está didaticamente dividido em três tipos de análises estatísticas:
-
-1.  Estatísticas descritivas, que incluem as medidas de tendência central e de dispersão.
-2.  Estatísticas que ajudam a compreender associação entre variáveis: qui-quadrado, correlação, regressão e análise fatorial.
-3.  Efeitos de grupo em outras variáveis
-
-As próximas seções apresentam recursos para a realização dessas análises.
-
-# Estatísticas descritivas
+# Estatísticas descritivas de tendência central e de dispersão
 
 A descrição dos dados geralmente é realizada pelas seguintes estatísticas: Média, desvio padrão, mediana, amplitude, mínimo, máximo, assimetria e curtose.
 Algumas dessas análises (média, desvio padrão e mediana) informam sobre o ponto central da distribuição das medidas.
@@ -614,7 +618,7 @@ ggplot() +
   theme_bw()
 ```
 
-# Gráfico de pontos
+### Gráfico de pontos
 
 ```{r}
 
@@ -657,8 +661,6 @@ ggplot(dataset,aes(x = country, y = bai_sum)) +
   geom_errorbar(stat = "summary", fun.data = "mean_sd", width = 0.3, na.rm = TRUE) + 
   coord_cartesian(ylim = c(0,20))
 ```
-
-------------------------------------------------------------------------
 
 # Análises de associação entre variáveis
 
@@ -1047,44 +1049,104 @@ data.frame(Fatores = c('Extroversão',
 
 ## Exercícios sobre qui-quadrado
 
-1.  Calcular o qui-quadrado para verificar as associações entre sexo e ansiedade (bai_class).
-    Represente os dados em uma tabela.
-
-2.  Calcular o qui-quadrado para verificar as associações entre sexo e depressão (bai_class).
-    Represente os dados em uma tabela.
-
-3.  Calcular o qui-quadrado para verificar as associações entre país e ansiedade (bai_class).
-    Represente os dados em um gráfico.
-
-4.  Calcular o qui-quadrado para verificar as associações entre país e depressão (bai_class).
-    Represente os dados em um gráfico.
-
 Dica: para que as categorias de ansiedade e depressão sejam mostradas em ordem crescente (mínima, leve, moderada, grave), é necessário informar o R sobre isso por meio do argumento `levels` da função `factor`.
 
+1.  Calcular o qui-quadrado para verificar as associações entre sexo e ansiedade (bai_class). Represente os dados em uma tabela.
+
 ```{r}
-# colocando as variáveis bdi_class e bai_class em ordem, usando o levels
-summary(dataset$country)
-summary(dataset$sex)
-summary(dataset$bdi_class)
-summary(dataset$bai_class)
+glimpse(dataset)
 
 # padronizar a ordem dos níveis: minima, leve, moderada, grave.
+dataset$bai_class <- factor(dataset$bai_class,
+                            levels = c("minima",
+                                       "leve",
+                                       "moderada",
+                                       "grave"))
+# Cálculo do qui-quadrado
+
+chisq.test(                               # função para cálculo do qui-quadrado
+  table(dataset$bai_class, dataset$sex))  # tabulação dos dados
+
+# Representação dos dados em tabela
+dataset %>% 
+  tabyl(bai_class,sex,show_na = FALSE) %>%   # função de tabulação do janitor
+  adorn_totals(c("row","col")) %>%           # adiciona o N
+  adorn_percentages("col") %>%               # adiciona porcentagens (One of "row", "col", or "all".)
+  adorn_pct_formatting(                
+    rounding = "half up",                    # arredondar do cinco pra cima
+    digits = 0) %>%                          # número de casas decimais
+  adorn_ns() %>%                             # mostra N e % juntas
+  pander()                                   # melhora a visualização dos dados.
+```
+
+O teste de qui-quadrado (X^2^~(gl=3, N=1945)~ = 44.767, p \< 0,001) foi estatisticamente significativo, indicando haver diferenças na distribuição da classificação de ansiedade por sexo.
+A tabela XX mostra que as mulheres apresentam menor porcentagem de casos de ansiedade **mínima**, maior porcentagem de casos de ansiedade **leve** e **moderada** e praticamente a mesma porcentagem de casos **graves**.
+
+2.  Calcular o qui-quadrado para verificar as associações entre sexo e depressão (bdi_class). Represente os dados em uma tabela.
+
+```{r}
 dataset$bdi_class <- factor(dataset$bdi_class,
                             levels = c("minima",
                                        "leve",
                                        "moderada",
                                        "grave"))
 
-dataset$bai_class <- factor(dataset$bai_class,
-                            levels = c("minima",
-                                       "leve",
-                                       "moderada",
-                                       "grave"))
+chisq.test(table(dataset$bdi_class, dataset$sex))
+
+# Representação dos dados em tabela
+dataset %>% 
+  tabyl(bdi_class,sex,show_na = FALSE) %>%   # função de tabulação do janitor
+  adorn_totals(c("row","col")) %>%           # adiciona o N
+  adorn_percentages("col") %>%               # adiciona porcentagens (One of "row", "col", or "all".)
+  adorn_pct_formatting(                
+    rounding = "half up",                    # arredondar do cinco pra cima
+    digits = 0) %>%                          # número de casas decimais
+  adorn_ns() %>%                             # mostra N e % juntas
+  pander()                                   # melhora a visualização dos dados.
+```
+
+O teste de qui-quadrado (X^2^~(gl=3, N=1942)~ = 9.022, p = 0,029) foi estatisticamente significativo, indicando haver diferenças na distribuição da classificação de depressão por sexo.
+A tabela XX mostra que as mulheres apresentam menor porcentagem de casos de mínima **mínima**, maior porcentagem de casos de depressão **leve** e **moderada** e a mesma porcentagem de casos **graves**.
+
+3.  Calcular o qui-quadrado para verificar as associações entre país e ansiedade (bai_class). Represente os dados em um gráfico.
+
+```{r}
+# Cálculo do qui-quadrado
+chisq.test(                               # função para cálculo do qui-quadrado
+  table(dataset$bai_class, dataset$country))  # tabulação dos dados
+
+# Representação dos dados em tabela
+dataset %>% 
+  tabyl(bai_class,country,show_na = FALSE) %>%   # função de tabulação do janitor
+  adorn_totals(c("row","col")) %>%           # adiciona o N
+  adorn_percentages("col") %>%               # adiciona porcentagens (One of "row", "col", or "all".)
+  adorn_pct_formatting(                
+    rounding = "half up",                    # arredondar do cinco pra cima
+    digits = 0) %>%                          # número de casas decimais
+  adorn_ns() %>%                             # mostra N e % juntas
+  pander()                                   # melhora a visualização dos dados.
+```
+
+4.  Calcular o qui-quadrado para verificar as associações entre país e depressão (bdi_class). Represente os dados em um gráfico.
+
+```{r}
+chisq.test(table(dataset$bdi_class, dataset$country))
+
+# Representação dos dados em tabela
+dataset %>% 
+  tabyl(bdi_class,country,show_na = FALSE) %>%   # função de tabulação do janitor
+  adorn_totals(c("row","col")) %>%           # adiciona o N
+  adorn_percentages("col") %>%               # adiciona porcentagens (One of "row", "col", or "all".)
+  adorn_pct_formatting(                
+    rounding = "half up",                    # arredondar do cinco pra cima
+    digits = 0) %>%                          # número de casas decimais
+  adorn_ns() %>%                             # mostra N e % juntas
+  pander()                                   # melhora a visualização dos dados.
 ```
 
 ## Exercícios sobre correlação
 
-Baixe o banco de dados [rwas_us.xlsx](https://docs.google.com/spreadsheets/d/1ja_BnmHO4iXTYgIV__b8ZXvqIJi8506IERb7W6kp2Js/edit?usp=sharing), que foi empregada em um estudo sobre autoritarismo conservador, e cole-o no mesmo diretório em que você está salvando seus arquivos para este estudo.
+Baixe o banco de dados [rwas_us.xlsx](https://docs.google.com/spreadsheets/d/1ja_BnmHO4iXTYgIV__b8ZXvqIJi8506IERb7W6kp2Js/edit?usp=sharing), que foi empregado em um estudo sobre autoritarismo conservador, e cole-o no mesmo diretório em que você está salvando seus arquivos para este estudo.
 Para mais informações sobre as variáveis desse banco de dados, baixe também [este arquivo](https://docs.google.com/document/d/1oOXxYNLe7nd8kkK7QyOKu_2KiDqfO-wuyDuKbB17iz0/edit?usp=sharing).
 Importe esse banco de dados para o R.
 Note que ele está no formato `.xlsx`, um arquivo de excel.
@@ -1094,11 +1156,55 @@ Em seguida, use esse banco de dados para realizar os exercício abaixo.
 
 1.  Calcule as correlações (r) e os índices de significância (p) entre os cinco grandes fatores de personalidade (extr, neur, amab, cons e aber).
 
+```{r}
+
+rwas_us %>% select(extr,neur,amab,cons,aber) %>% corr.test(method = "pearson")
+names(rwas)
+# rwas_br <- rwas %>% filter(IP_country == "BR")
+# glimpse(rwas_br)
+```
+
 2.  Calcule as correlações (r) e os índices de significância (p) dos cinco grandes fatores de personalidade (extr, neur, amab, cons e aber) com raciocínio verbal (rv) e autoritarismo (auth), mas expresse os resultados com os traços de personalidade nas linhas e o rv e o auth nas colunas.
+
+```{r}
+names(rwas_us)
+corr.test(rwas_us[,91:95],rwas_us[,c(96,97)])
+```
 
 3.  Faça um gráfico de pontos para cada par de correlações entre cinco grandes fatores.
 
-4.  Faça um gráfico de calor (heat map) para as correlações entre os cinco grandes fatores.
+```{r}
+pairs.panels(rwas_us[,c('extr','neur','amab','cons','aber')])
+
+ggplot(rwas_us, aes(x=extr,y=neur)) +
+  geom_jitter() +
+  geom_smooth(method = "lm") +
+  labs(title ="Correlação entre Extroversão e Neuroticismo", 
+       x = "Extroversão", 
+       y = "Neuroticismo") +
+  theme_classic()
+```
+
+4.  Faça um gráfico de calor (corrplot) para as correlações entre os cinco grandes fatores.
+
+```{r}
+# Em dois passos
+
+## Cálculo das correlações e p-values
+matriz_bigfive <- corr.test(rwas_us[,91:95])
+
+## Utilização da matriz de correlações para fazer o gráfico
+corrplot::corrplot(matriz_bigfive$r, 
+                   order = "original", 
+                   type = "lower",
+                   title = "Correlação entre os fatores bif five")
+
+### Gráfico em apenas uma etapa
+corrplot::corrplot(corr.test(rwas_us[,91:95])$r, 
+                   order = "original", 
+                   type = "lower",
+                   title = "Correlação entre os fatores bif five")
+```
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 # saveRDS(rwas_us,"rwas_us.rds")
@@ -1204,18 +1310,15 @@ corrplot::corrplot(method = "shade",
 
 ## Exercícios sobre regressão linear múltipla
 
-Utilizando o arquivo rwas_us, que já empregamos no exercício anterior, realizar uma análise de regressão para verificar se os traços de personalidade e o raciocínio verbal predizem autoritarismo.
+Utilizando o arquivo rwas_us, que já empregamos no exercício anterior, realizar uma análise de regressão para verificar se os traços de personalidade (extr, neur, amab, cons e aber) e o raciocínio verbal (rv) predizem autoritarismo (auth).
 Interprete os resultados.
 
 ```{r include=FALSE}
-
+names(rwas_us)
 mod_rwas_us <- lm(auth ~ extr+neur+amab+cons+aber+rv,
                   data=rwas_us,
                   na.action = na.omit)
 summary(mod_rwas_us)
-
-
-
 ```
 
 ## Exercício com análise fatorial exploratória
@@ -1232,6 +1335,10 @@ Observe a correlação entre os fatores.
 names(dataset) %>% as.data.frame()
 # ANÁLISE FATORIAL
 
+## Condições para realização da análise fatorial
+dataset %>% select(46:87) %>% KMO()
+dataset %>% select(46:87) %>% bartlett.test()
+
 ## Determinação do número de fatores a serem retidos
 
 dataset %>% dplyr::select(46:87) %>% scree(pc = FALSE)
@@ -1245,3 +1352,798 @@ fa_ansdep <- dataset %>% dplyr::select(46:87) %>% fa(nfactors = 2,
 
 ```
 
+# Estatísticas para análise de efeitos de grupos
+
+Em muitas pesquisas, o interesse recai sobre os efeitos de grupo.
+Nesses casos, investiga-se se o fato das pessoas perteceram a um grupo produz efeito em alguma variável psicológica.
+Por exemplo, qual é o efeito de sexo (masculino ou feminino) na variável inteligência?
+Qual é o efeito de um programa de desenvolvimento da inteligência emocional (grupos controle e experimental) sobre a qualidade de vida?
+Qual o efeito do país de origem (A, B, C) no desempenho escolar?
+As análises estatísticas que normalmente são usadas nesses estudos são as seguintes:
+
+-   Teste t
+
+-   Análise de variância de uma via (ANOVA)
+
+-   Análise de varância univariada
+
+-   Análise de variância multivariada (MANOVA)
+
+-   Anova Fatorial Análise de Covariância (ANCOVA)
+
+-   Análise Multivariada de Covariância (MANCOVA)
+
+-   Análise de variância por medidas repetidas
+
+# Teste t
+
+Quando queremos comparar uma variável do nosso banco de dados com os dados constantes na literatura (por exemplo, as pontuações em depressão da nossa amostra com a média da população), usamos o **teste t para uma amostra**.
+Como exemplo, vamos usar o banco de dados `big_five_BR`, para investigar se as pontuações em neuroticismo dos brasileiros é significativamente diferentes da média encontrada nos diversos países em que a escala foi aplicada.
+Para isso, começamos investigando se a distribuição das pontuações é ao menos próxima da distribuição normal.
+
+### Média da amostra sem participantes brasileiros (referência)
+
+```{r}
+# seleção de um subset do datarame big_five somente com os participantes NÃO-BRASILEIROS na variável neur 
+média_neur <- big_five %>% 
+  filter(!país == "BR") %>% 
+  select("neur")
+
+# cálculo da média dos participantes NÃO-BRASILEIROS em neur
+# Esse resultado será utilizado como referência no t-teste
+round(mean(média_neur$neur, na.rm = TRUE),digits = 2)
+```
+
+### Seleção de participantes brasileiros
+
+```{r}
+big_five_BR <- big_five %>% 
+  filter(país == "BR")
+```
+
+# Teste-t para uma amostra
+
+```{r}
+
+t.test(                # t.test é o comando do stats
+  big_five_BR$neur,    # localização da variável neur em brasileiros
+  mu = 3.09)           # valor de referência, calculado anteriormente
+```
+
+Encontrou-se uma diferença estatisticamente significativa entre as médias (t = 4,0, gl = 174, p-valor = 9,331e-05), em que os participantes brasileiros apresentaram um valor mais elevado (neur_BR = 3,335) que o de participantes de outros países.
+(neur_outros = 3,09, como calculado anteriormente).
+
+### Representação em Tabela
+
+```{r}
+big_five %>% 
+  drop_na(neur, país) %>% 
+  mutate(país_dic = ifelse(país == "BR", "BR", "MUNDO")) %>% 
+  group_by(país_dic) %>% 
+  summarise(média = mean(neur),
+            "Desvio padrão" = sd(neur)) %>% pander()
+```
+
+### Representação Gráfica
+
+```{r}
+## install.packages("pacman")
+# OBS: a função p_load do pacote pacman verifica se um pacote está instalado e instala se for necessário.
+
+pacman::p_load(ggpubr) # ggpubr é um pacote que adiciona algumas funções ao ggplot
+                       # com isso fica possível usar a função mean_ci e desvio padrão
+                       # para calcular intervalo de confiança.
+
+# criação de uma variável categórica (nominal) para diferenciar BR de outros
+big_five %>% mutate(País = ifelse(país == "BR","BR","OU")) %>% drop_na() %>%
+# 1ª camada: gráfico de pontos  
+ggplot(aes(x = País, y = neur)) +
+  geom_point(stat = "summary", fun = "mean", na.rm = TRUE) +
+# 2ª camada: barras com desvio padrão  
+  geom_errorbar(stat = "summary", fun.data = "mean_sd", width = 0.3, na.rm = TRUE) + 
+# Redimensionamento do eixo y
+  coord_cartesian(ylim = c(1,5)) +
+# Título e rótulos dos eixos
+  labs(title = "Média de Neuroticismo: Brasil x Mundo",
+       x = "País",
+       y = "Neuroticismo")
+```
+
+# Teste-t para amostras independentes
+
+Essa análise estatística se aplica à comparação das médias de dois grupos em que os participantes estão em um grupo OU em outro, não sendo possível estar nos dois grupos ao mesmo tempo.
+Por isso a denominação de **amostras independentes**.
+Para isso, vamos usar o dataframe big_five_BR e analisar o efeito de gênero (sexo, na verdade, pois só consideraremos as categorias **masculino** e **feminino**) nos cinco grandes fatores de personalidade.
+
+### Preparação do banco de dados e carregamento dos pacotes
+
+Para a realização dessa análise vamos usar o pacote `car`, que será empregado apenas em poucas análises, então não precisamos carregar o pacote (para não sobrecarregar o sistema), mas apenas chamar a função desejada do pacote.
+
+Então, temos que preparar a variável gênero do dataframe big_five_BR, que contem três categorias (masculino, feminino e outro).
+Como o teste-t só funciona para duas categorias e a categoria gênero apresenta apenas duas observações "outro", vamos selecionar somente os participantes que declararam sexo masculino ou feminino e salvar esse novo dataframe com o nome de *big_five_BR_nona*.
+
+```{r}
+# primeiro passo: transformar a categoria "outros" em NA
+
+big_five_BR %>% select(gênero) %>% distinct()
+
+big_five_BR_nona <- big_five_BR %>% filter(gênero %in% c('Masculino', 'Feminino'))
+
+big_five_BR_nona %>% select(gênero) %>% distinct()
+```
+
+### Verificação da homogeneidade das variâncias
+
+Um primeiro passo para a realização do t-teste para amostras independentes é a verificação da homogeneidade das variâncias, por meio do teste de Levene.
+Para isso, vamos usar a função `leveneTest()` do pacote `car`.
+
+```{r}
+# install.packages("car")
+
+# Teste de Levene usando o pacote car
+
+car::leveneTest(extr ~ gênero, big_five_BR_nona, center=mean)
+car::leveneTest(neur ~ gênero, big_five_BR_nona, center=mean)
+car::leveneTest(amab ~ gênero, big_five_BR_nona, center=mean)
+car::leveneTest(cons ~ gênero, big_five_BR_nona, center=mean)
+car::leveneTest(aber ~ gênero, big_five_BR_nona, center=mean)
+
+## OBS: Por default, o teste realizado pelo pacote car tem como base a mediana, que é mais robusto, mas, para ficar igual ao SPSS, mudamos para a média, por isso o argumento center=mean.
+```
+
+Observou-se que todos os p-valores foram superiores a 0,05, indicando não haver diferenças significativas entre as variâncias, que, portanto, podem ser assumidas como homogêneas.
+Sendo assim, parte-se para a realização dos *testes t* propriamente ditos.
+
+```{r}
+t_extr <- t.test(extr ~ gênero, big_five_BR_nona, var.equal = TRUE)
+t_neur <- t.test(neur ~ gênero, big_five_BR_nona, var.equal = TRUE)
+t_amab <- t.test(amab ~ gênero, big_five_BR_nona, var.equal = TRUE)
+t_cons <- t.test(cons ~ gênero, big_five_BR_nona, var.equal = TRUE)
+t_aber <- t.test(aber ~ gênero, big_five_BR_nona, var.equal = TRUE)
+```
+
+Observa-se que houve diferença estatisticamente significativa apenas no traço de amabilidade, em que a média das mulheres (`r big_five_BR_nona %>% filter(gênero == "Feminino") %>% select(amab) %>% summarise(média = round(mean(amab),digits = 1))`) foi superior à dos homens((`r big_five_BR_nona %>% filter(gênero == "Masculino") %>% select(amab) %>% summarise(média = round(mean(amab),digits = 1))`)).
+
+### Cálculo do Tamanho do Efeito (d de Cohen)
+
+```{r}
+# install.packages("effsize")
+
+effsize::cohen.d(amab ~ gênero, data = big_five_BR_nona)
+
+data.frame("d de Cohen" = c("< 0,2",
+                            "> 0,2 até 0,5",
+                            "> 0,5 até 0,8",
+                            "> 0.8"),
+           "Interpretação" = c("irrelevante",
+                               "pequeno",
+                               "moderado",
+                               "grande")) %>% pander()
+
+```
+
+Obteve-se um d de Cohen igual a -0.3213846, considerado pequeno conforme a tabela de referência.
+Ou seja, o teste t foi estatisticamente significativo, indicando que **é pouco provável** que a diferença entre homens e mulheres tenha sido obtida ao acaso.
+No entanto, a diferença (efeito) causada por gênero no traço de amabilidade é pequeno.
+
+### Apresentação dos resultados em uma tabela
+
+```{r}
+data.frame(Variável = c("Extroversão","Neuroticismo","Amabilidade",
+                        "Conscienciosidade","Abertura"),
+           t = c(round(t_extr$statistic,digits = 3),
+                 round(t_neur$statistic,digits = 3),
+                 round(t_amab$statistic,digits = 3),
+                 round(t_cons$statistic,digits = 3),
+                 round(t_aber$statistic,digits = 3)),
+           gl = c(t_extr$parameter,
+                  t_neur$parameter,
+                  t_amab$parameter,
+                  t_cons$parameter,
+                  t_aber$parameter),
+           p = c(round(t_extr$p.value,digits = 3),
+                 round(t_neur$p.value,digits = 3),
+                 round(t_amab$p.value,digits = 3),
+                 round(t_cons$p.value,digits = 3),
+                 round(t_aber$p.value,digits = 3)),
+           M = c(round(t_extr$estimate[1],digits=2),
+                 round(t_neur$estimate[1],digits=2),
+                 round(t_amab$estimate[1],digits=2),
+                 round(t_cons$estimate[1],digits=2),
+                 round(t_aber$estimate[1],digits=2)),
+           "F"=c(round(t_extr$estimate[2],digits=2),
+                 round(t_neur$estimate[2],digits=2),
+                 round(t_amab$estimate[2],digits=2),
+                 round(t_cons$estimate[2],digits=2),
+                 round(t_aber$estimate[2],digits=2))) %>% pander()
+```
+
+Juntamente com esse resultado, é necessário apresentar as estatísticas descritivas.
+Então, a tabela poderia ficar assim.
+
+```{r}
+## Usando a função tableby do pacote arsenal
+
+tableby(gênero ~ extr + neur + amab + cons + aber,
+        test = FALSE,
+        data = big_five_BR_nona) %>%
+  summary(text = TRUE)
+```
+
+### Representação gráfica (VER DEPOIS)
+
+```{r}
+# usando o graphics (base do R)
+boxplot(amab ~ gênero, big_five_BR, ylab = "Amabilidade", xlab = "Sexo")
+
+# MESMO PROBLEMA ANTERIOR.
+```
+
+# Teste-t para amostras pareadas
+
+Muitas vezes, os pesquisadores estão interessados em comparar o mesmo grupo de pessoas em duas situações diferentes, como por exemplo, antes e após alguma intervenção (pré e pós-teste).
+Como o grupo de pessoas é o mesmo, diz-se que o teste-t é para **amostras pareadas**.
+
+Para realizar essa análise, vamos utilizar um **banco de dados fictício** que contém duas supostas medidas de habilidades em leitura, uma realizada antes de um programa de intervenção para estimulação da leitura (pre_teste), e uma realizada após o programa (pos_teste).
+
+```{r}
+# Criação de um dataframe para análise de dados pareados
+df <- data.frame(id = paste("s",1:30,sep=""),
+                 pre_teste = rnorm(30, mean = 5.14, sd = 1.23),
+                 pos_teste = rnorm(30, mean = 6.78, sd = 0.93))
+
+saveRDS(df, "df.rds")
+```
+
+### Teste-t para amostras pareadas
+
+```{r}
+# Teste t
+t_par <- t.test(df$pos_teste,df$pre_teste,paired = TRUE)
+
+
+# Cálculo do Tamanho do efeito
+effsize::cohen.d(df$pos_teste,df$pre_teste,paired = TRUE)
+
+```
+
+A diferença de médias entre o pré e o pós teste foi estatisticamente significativa (t = 5,4704, gl = 29, p-valor = 6.867e-06), com a média do pós-teste (6,864) superior à média do pré-teste (4,916).
+O coeficiente d de Cohen foi de 1,59, indicando que o tamanho do efeito da intervenção foi grande.
+
+OBS: Lembrar que os dados são fictícios.
+
+### Apresentação dos resultados em uma tabela
+
+```{r}
+# usando a função summary
+
+summary(df$pre_teste)
+summary(df$pos_teste)
+
+# criando um dataframe com as informações 
+data.frame(Variáves = c("Pré-teste",
+                        "Pós-teste"),
+           Média = c(round(mean(df$pre_teste,na.rm=TRUE),digits=2),
+                     round(mean(df$pos_teste,na.rm=TRUE),digits=2)),
+           "Desv. Padrão" = c(round(sd(df$pre_teste,na.rm=TRUE),digits=2),
+                              round(sd(df$pos_teste,na.rm=TRUE),digits=2))) %>% pander()
+```
+
+### Representação gráfica
+
+```{r}
+par(mfrow=c(1,2)) # função para apresentar gráficos em paralelo
+                  # diz que em uma linha vão entrar dois gráficos (1,2)
+
+boxplot(df$pre_teste, ylab="Leitura - Pré-teste", xlab="Pré-Teste")
+boxplot(df$pos_teste, ylab="Leitura - Pós-teste", xlab="Pós-Teste")
+
+par(mfrow=c(1,1)) # voltar para um gráfico por linha.
+```
+
+# Análise de Variância
+
+O teste-t apresenta uma limitação importante, que é a de só conseguir comparar **duas** categorias de uma variável.
+Para superar essa limitação e podermos comparar mais de duas categorias de uma variável é preciso utilizar uma Análise de Variância (ANOVA).
+
+# ANOVA de uma via
+
+Para realizar essa análise vamos usar o dataframe `rwas` para verificar se há efeito do nível de escolaridade (fundamental, médio, superior, pós-graduação) sobre a medida de *autoritarismo de direita* realizada pelo Right Wing Authoritarianism Scale.
+Para isso, é necessário [importar o banco de dados](https://github.com/jmhbueno/R_Stat/blob/9577839ebbc25524d57ce34dddc93a0b54342317/rwas.rds) e salvar na pasta que você está utilizando para este curso.
+Em seguida, use o código abaixo para importar o arquivo e salvá-lo como um objeto (dataframe) do R.
+
+```{r}
+rwas <- readRDS("rwas.rds")
+
+```
+
+### ANOVA de uma via
+
+```{r}
+# Criação do modelo usando a função aov do pacote stats (Base do R)
+anova_auth <- aov(auth ~ education, rwas)
+
+# visualização dos resultados
+summary(anova_auth)
+```
+
+Nesse caso, há quatro categorias dentro da variável education:
+
+`r distinct(rwas,education) %>% pander()`
+
+O fato de a ANOVA ter sido estatisticamente significativa nos diz que há diferenças importantes nessas quatro categorias, mas não conhecemos par a par, se há diferenças ou não.
+Para isso, é preciso empregar os **Testes Post-Hoc**, que fazem comparações múltiplas, dois a dois.
+Para realizar esses testes, precisamos instalar o pacote `DescTools`, para poder utilizar a função `PostHocTest()`.
+
+```{r}
+# Testes de post-hoc
+# post-hocs permitidos: "hsd" (Tukey's HSD), "bonferroni", "lsd", "scheffe", "duncan"
+
+#install.packages("DescTools")
+# library(DescTools)
+DescTools::PostHocTest(anova_auth, method = "hsd", conf.level = 0.95)
+
+```
+
+Observa-se que há diferenças estatisticamente significativas entre todos os pares.
+Isso ocorre, neste caso, porque o número de participantes da pesquisa é muito alto (N=`r nrow(rwas)`).
+Normalmente, para uma ANOVA de uma via, recomenda-se o F de Cohen.
+
+```{r}
+# Tamanho do efeito
+
+# install.packages("effectsize")
+
+effectsize::cohens_f(
+  anova_auth,
+  partial = TRUE,
+  squared = FALSE,
+  model2 = NULL,
+  ci = 0.95,
+  alternative = "greater",
+  verbose = TRUE)
+
+# referência (Steiger e Fouladi, 1997/2016)
+data.frame("f de Cohen" = c("< 0,10",
+                            "> 0,10 até 0,25",
+                            "> 0,25 até 0,40",
+                            "> 0.40"),
+           "Interpretação" = c("irrelevante",
+                               "pequeno",
+                               "médio",
+                               "grande")) %>% pander()
+
+# effectsize::eta_squared(
+#   anova_auth,
+#   partial = TRUE,
+#   generalized = FALSE,
+#   ci = 0.95,
+#   alternative = "greater",
+#   verbose = TRUE)
+# 
+# effectsize::omega_squared(
+#   anova_auth,
+#   partial = TRUE,
+#   ci = 0.95,
+#   alternative = "greater",
+#   verbose = TRUE)
+# 
+# effectsize::epsilon_squared(
+#   anova_auth,
+#   partial = TRUE,
+#   ci = 0.95,
+#   alternative = "greater",
+#   verbose = TRUE)
+# 
+# 
+# effectsize::cohens_f_squared(
+#   anova_auth,
+#   partial = TRUE,
+#   squared = TRUE,
+#   model2 = NULL,
+#   ci = 0.95,
+#   alternative = "greater",
+#   verbose = TRUE)
+
+```
+
+### Apresentação dos dados em tabela
+
+```{r}
+# usando a função tableby() do pacote arsenal
+# muito simples, mas a tabela fica muito larga e não cabe na página
+one_way_anova_tab <- arsenal::tableby(education ~ auth, 
+                                      digits = 1, 
+                                      test = FALSE, 
+                                      rwas)
+
+summary(one_way_anova_tab,text=TRUE)
+
+# criando uma dataframe
+
+data.frame(Escolaridade = c("Less than high school",
+                            "High school",
+                            "University degree",
+                            "Graduate degree"),
+           Média = 
+             c(round(mean(rwas[rwas$education == "Less than high school",]$auth, na.rm = TRUE),digits=1),
+               round(mean(rwas[rwas$education == "High school",]$auth, na.rm = TRUE),digits=1),
+               round(mean(rwas[rwas$education == "University degree",]$auth, na.rm = TRUE),digits=1),
+               round(mean(rwas[rwas$education == "Graduate degree",]$auth, na.rm = TRUE),digits=1)),
+           DesvPad = 
+             c(round(sd(rwas[rwas$education == "Less than high school",]$auth, na.rm = TRUE),digits=1),
+               round(sd(rwas[rwas$education == "High school",]$auth, na.rm = TRUE),digits=1),
+               round(sd(rwas[rwas$education == "University degree",]$auth, na.rm = TRUE),digits=1),
+               round(sd(rwas[rwas$education == "Graduate degree",]$auth, na.rm = TRUE),digits=1))) %>% 
+  pander()
+```
+
+### Representação gráfica
+
+```{r}
+ggplot(rwas, aes(x = education, y = auth)) + 
+  geom_boxplot(color = "black", fill = "#74c69d") +
+  labs(title = "Autoritarismo por nível de escolaridade",
+       x = "Escolaridade",
+       y = "Autoritarismo") + 
+  coord_flip()
+```
+
+Relato de resultados, considerando os resultados de uma forma geral: *Houve efeito significativo do nível de escolaridade (education) sobre o autoritarismo de direita (F~(gl=3, N=9881)~ = 102, p-valor = \<2e-16). Uma análise post-hoc de comparações multiplas, empregando o Método HSD de Tukey, mostrou que todas as comparações foram estatisticamente significativas, o que provavelmente ocorreu devido ao tamanho da amostra. O tamanho do efeito, no entanto, calculado pela estatística F de Cohen, foi de 0,18, considerado pequeno. As estatísticas descritivas mostram que conforme o nível de escolaridade aumenta, o autoritarismo de direita diminui.*
+
+# ANOVA de medidas repetidas
+
+A ANOVA de uma via permite comparar 3 ou mais grupos (por exemplo, níveis de escolaridade) quanto a uma variável (por exemplo, autoritarismo), como vimos no exemplo anterior.
+No entanto, essa análise se aplica a somente uma variável dependente e a grupos independentes.
+Se quisermos realizar uma comparação de grupos pareados ao longo de duas ou mais medidas, teremos que usar uma ANOVA de medidas repetidas.
+Para isso precisaremos instalar o pacote `ez`, que facilita a realização dessa análise.
+
+### Instalação de pacotes
+
+```{r}
+# install.packages("ez")
+library(ez)
+```
+
+### Geração de um banco de dados
+
+Para realizar essa análise, vamos gerar um **banco de dados fictício** em que a variável *id* identifica os sujeitos (N = 100), e as variáveis de *v1* a *v5* representam as medidas repetidas.
+Nesse caso, vamos **SUPOR** a seguinte situação como problema de pesquisa.
+Um novo programa para a prática de mindfulness **(FICTÍCIO)** teria sido aplicado a um grupo de praticantes e a pergunta é se esse programa desenvolve habilidades relacionadas ao mindfulness.
+Portanto, as cinco medidas encontradas no dataframe `df_aov_mr` (v1 a v5) estão fazendo o papel de uma avaliação de habilidades para a prática de mindfulness.
+
+```{r}
+df_aov_mr <- data.frame(id = paste("s",1:100,sep = ""),
+                        v1 = round(rnorm(n=100, mean = -1.2, sd = 0.54),digits = 3),
+                        v2 = round(rnorm(n=100, mean = -0.7, sd = 0.52),digits = 3),
+                        v3 = round(rnorm(n=100, mean = -0.1, sd = 0.57),digits = 3),
+                        v4 = round(rnorm(n=100, mean =  0.4, sd = 0.55),digits = 3),
+                        v5 = round(rnorm(n=100, mean =  0.5, sd = 0.54),digits = 3))
+                        
+glimpse(df_aov_mr)
+```
+
+### Transformação do banco de dados
+
+Para a realização da análise de variância por medidas repetidas é necessário transformar o banco de dados para que as medidas repetidas fiquem em uma linha diferente.
+Geralmente, nossos banco de dados estão no formato **amplo** (wide), mas a análise de medidas repetidas tem que ser realizada com um banco de dados no formato **longo** (long).
+
+```{r}
+# Usando a função pivot_longer() do tidyverse
+
+df_aov1 <- 
+df_aov_mr %>% pivot_longer(cols = 2:6,            # variáveis a serem unidas em uma só.  
+                           names_to = "tempo",    # nome dessa nova variável 
+                           values_to = "valores") # valores correspondentes à nova variável 
+
+# transformar as variáveis id e tempo em fatores
+df_aov1$id <- factor(df_aov1$id)
+df_aov1$tempo <- factor(df_aov1$tempo)
+
+glimpse(df_aov1)
+```
+
+### ANOVA de medidas repetidas
+
+```{r}
+mod_df_aov1 <- ez::ezANOVA(data = df_aov1,    # banco de dados no formato longo
+                    dv = valores,             # variável dependente
+                    wid = id,                 # variável que identifica os sujeitos
+                    within = tempo,           # variável intra-sujeitos
+                    detailed = TRUE,          # saída mais detalhada
+                    type = 3)                 # tipo de soma dos quadrados, default 2
+
+# o efeito de variable foi significativo (6.484458e-85)
+# O Mauchly's Test de esfericidade. Caso os dados não sejam esféricos, tem que interpretar os dados Sphericity Corrections, que corrigem os graus de liberdade.
+# Geralmente, usamos a correçaõ de Greenhouse-Geisser (GGe), mais conservadora.
+# Mas o pacote tb informa o valor de Huynh-Feldt (HFe)
+# Como esses índices foram significativos, concluímos que há diferenças entre as cinco medidas.
+```
+
+Comparações múltiplas para a verificação de diferenças para a par.
+Emprega-se uma série de testes-t pareados com p-valor ajustado pelo método de Bonferroni.
+
+```{r}
+# Testes post-hoc
+pairwise.t.test(df_aov1$valores, df_aov1$tempo, paired = TRUE,
+                p.adjust.method = "bonferroni")
+
+```
+
+Todas as diferenças entre os pares de medidas foram estatisticamente significativas, exceto entre v4 e v5.
+### Visualização dos dados em tabela
+
+```{r}
+table_AOV_medrep <- 
+data.frame(variáveis = c('v1','v2','v3','v4','v5'),
+           médias = c(round(mean(df_aov_mr$v1),digits = 2),
+                      round(mean(df_aov_mr$v2),digits = 2),
+                      round(mean(df_aov_mr$v3),digits = 2),
+                      round(mean(df_aov_mr$v4),digits = 2),
+                      round(mean(df_aov_mr$v5),digits = 2)),
+           desvpad = c(round(sd(df_aov_mr$v1),digits = 2),
+                       round(sd(df_aov_mr$v2),digits = 2),
+                       round(sd(df_aov_mr$v3),digits = 2),
+                       round(sd(df_aov_mr$v4),digits = 2),
+                       round(sd(df_aov_mr$v5),digits = 2)))
+
+table_AOV_medrep %>% pander()
+# rstatix::get_summary_stats(df_aov_mr,v1, type = "mean_sd")
+```
+
+Nota-se que as médias vão aumentando prograssivamente de v1 a v5.
+Porém, como visto anteriormente, a diferença entre v4 e v5 não foi estatisticamente significativa.
+
+### Representação gráfica
+
+```{r}
+ggplot(table_AOV_medrep, aes(x=variáveis, y=médias)) +
+  geom_point(color = "#9e2a2b",size = 4) +
+  geom_line(group = 1,linetype = "dashed") +
+  labs(title = "ANOVA POR MEDIDAS REPETIDAS",
+       x = "Medidas Repetidas", 
+       y = "Médias",
+       caption = 'OBS: Gráfico construído com base em dados simulados',
+       tag = "Estatística no R")
+```
+
+# ANOVA de medidas repetidas com grupo controle
+
+Um projeto mais robusto utilizaria que o anterior utilizaria um grupo controle para poder comparar a eficácia do programa entre dois grupos, um que passa pelo programa (grupo experimental) e outro que não passa (grupo controle).
+Para **simular** essa situação, vamos criar o seguinte **banco de dados fictício**:
+
+### Geração de um banco de dados
+
+```{r}
+# Criação de variáveis, sendo a o grupo controle e b o grupo experimental.
+
+v1a <- round(rnorm(n=50, mean = -1.2, sd = 1.0),digits = 3)
+v1b <- round(rnorm(n=50, mean = -1.3, sd = 1.1),digits = 3)
+v2a <- round(rnorm(n=50, mean = -1.3, sd = 0.9),digits = 3)
+v2b <- round(rnorm(n=50, mean = -0.7, sd = 1.1),digits = 3)
+v3a <- round(rnorm(n=50, mean = -1.1, sd = 1.0),digits = 3)
+v3b <- round(rnorm(n=50, mean = -0.1, sd = 0.9),digits = 3)
+v4a <- round(rnorm(n=50, mean = -1.2, sd = 1.0),digits = 3)
+v4b <- round(rnorm(n=50, mean =  0.4, sd = 1.1),digits = 3)
+v5a <- round(rnorm(n=50, mean = -1.1, sd = 1.1),digits = 3)
+v5b <- round(rnorm(n=50, mean =  0.5, sd = 0.9),digits = 3)
+
+# Junção das variáveis "a" num grupo ctrl
+ctrl <- data.frame(v1a,v2a,v3a,v4a,v5a,grupo = "ctrl")
+
+# junção das variáveis "b" num grupo expe
+expe <- data.frame(v1b,v2b,v3b,v4b,v5b,grupo = "expe")
+
+# modificação dos nomes das variáveis do grupo expe para ficar igual às variáves do grupo ctrl
+# esse passo é necessário para posteriormente juntar esses dois dataframes.
+expe <- rename(expe,v1a = v1b,v2a=v2b,v3a=v3b,v4a=v4b,v5a=v5b)
+
+# junção dos dataframes ctrl e expe
+df_aov_mr2 <- bind_rows(ctrl,expe)
+
+# transformação da variável grupo em fator
+df_aov_mr2$grupo <- as.factor(df_aov_mr2$grupo)
+
+# inserção de uma variável id ao dataframe df_aov_mr2
+df_aov_mr2 <- cbind(id = paste("s",1:100,sep = ""),df_aov_mr2)
+
+# renomear as variáveis do dataframe df_aov_mr2 para ficar mais simples
+df_aov_mr2 <- rename(df_aov_mr2,v1=v1a,v2=v2a,v3=v3a,v4=v4a,v5=v5a)
+
+# transformação da variável id em fator
+# passo necessário para rodar a análise posteriormente
+df_aov_mr2$id <- factor(df_aov_mr2$id)
+
+glimpse(df_aov_mr2)
+```
+
+### Transformações no banco de dados
+
+Proceder a transformação do banco de dados do formato amplo para o formato longo, de forma semelhante ao que foi feito com o banco de dados `df_aov_mr1`.
+
+```{r}
+# Modificação do formato com a função pivot_longer do tidyr
+df_aov2 <- 
+df_aov_mr2 %>% pivot_longer(cols = 2:6,            # variáveis a serem unidas em uma só.  
+                           names_to = "tempo",    # nome dessa nova variável 
+                           values_to = "valores") # valores correspondentes à nova variável 
+
+df_aov2$tempo <- as.factor(df_aov2$tempo)
+
+glimpse(df_aov2)
+```
+
+### ANOVA de medidas repetidas
+
+Com o banco de dados no formato longo já é possível rodar o modelo da ANOVA.
+
+```{r}
+mod_df_aov2 <- ez::ezANOVA(data = df_aov2,    # banco de dados no formato longo
+                           dv = valores,        # variável dependente
+                           wid = id,          # variável que identifica os sujeitos
+                           within = tempo,    # variável intragrupo
+                           between = grupo,   # variável entre grupos (ctrl / expe)
+                           detailed = TRUE,   # opção para output mais detalhado
+                           type = 3)          # opção pelo método da soma dos quadrados
+
+mod_df_aov2    # printar os resultados
+```
+
+### Visualização dos dados em tabela
+
+Os resultados da ANOVA indicam se houve efeito intra e entre grupos, mas não diz em que direção essas diferenças ocorreram.
+Para isso, é necessário observar as estatísticas descritivas (especialmente as médias) dos grupos.
+
+```{r}
+# construção de um dataframe para visuação das estatísticas descritivas
+tab_df_aov_mr2 <- 
+data.frame(variáveis = names(df_aov_mr2[,2:6]),
+           M_ctrl = c(round(mean(df_aov_mr2[df_aov_mr2$grupo == "ctrl",]$v1),digits = 2),
+                      round(mean(df_aov_mr2[df_aov_mr2$grupo == "ctrl",]$v2),digits = 2),
+                      round(mean(df_aov_mr2[df_aov_mr2$grupo == "ctrl",]$v3),digits = 2),
+                      round(mean(df_aov_mr2[df_aov_mr2$grupo == "ctrl",]$v4),digits = 2),
+                      round(mean(df_aov_mr2[df_aov_mr2$grupo == "ctrl",]$v5),digits = 2)),
+           sdctrl = c(round(sd(df_aov_mr2[df_aov_mr2$grupo == "ctrl",]$v1),digits = 2),
+                      round(sd(df_aov_mr2[df_aov_mr2$grupo == "ctrl",]$v2),digits = 2),
+                      round(sd(df_aov_mr2[df_aov_mr2$grupo == "ctrl",]$v3),digits = 2),
+                      round(sd(df_aov_mr2[df_aov_mr2$grupo == "ctrl",]$v4),digits = 2),
+                      round(sd(df_aov_mr2[df_aov_mr2$grupo == "ctrl",]$v5),digits = 2)),
+           M_expe = c(round(mean(df_aov_mr2[df_aov_mr2$grupo == "expe",]$v1),digits = 2),
+                      round(mean(df_aov_mr2[df_aov_mr2$grupo == "expe",]$v2),digits = 2),
+                      round(mean(df_aov_mr2[df_aov_mr2$grupo == "expe",]$v3),digits = 2),
+                      round(mean(df_aov_mr2[df_aov_mr2$grupo == "expe",]$v4),digits = 2),
+                      round(mean(df_aov_mr2[df_aov_mr2$grupo == "expe",]$v5),digits = 2)),
+           sdexpe = c(round(sd(df_aov_mr2[df_aov_mr2$grupo == "expe",]$v1),digits = 2),
+                      round(sd(df_aov_mr2[df_aov_mr2$grupo == "expe",]$v2),digits = 2),
+                      round(sd(df_aov_mr2[df_aov_mr2$grupo == "expe",]$v3),digits = 2),
+                      round(sd(df_aov_mr2[df_aov_mr2$grupo == "expe",]$v4),digits = 2),
+                      round(sd(df_aov_mr2[df_aov_mr2$grupo == "expe",]$v5),digits = 2)))
+
+tab_df_aov_mr2 %>% pander()
+```
+
+### Representação gráfica
+
+```{r}
+ggplot(data = df_aov2, aes(x = tempo, y = valores, group = grupo, color = grupo)) +
+  geom_line(stat = "summary", size = 1) +
+  geom_point(stat = "summary", fun.y = "mean", size = 3) + 
+  labs(title = "Efeito de uma intervenção ao longo do tempo",
+       x = "Medidas repetidas",
+       y = "Valor",
+       caption = 'OBS: Gráfico construído com base em dados simulados',
+       tag = "Estatística no R")
+
+
+
+```
+
+Relato de resultados: Foram realizadas comparações intragrupo (medidas repetidas) e comparações entre grupos (controle e experimental).
+Notou-se que houve diferença estatisticamente significativa intragrupo (F~(gl=4,N=100)~=9,489989; p-valor=2.481601e-07) e entre grupos ((F~(gl=1,N=100)~=112.127948; p-valor=6.401131e-18)).
+
+# Exercícios
+
+1.  Utilizando o dataframe `dataset`, verifique se há efeito de sexo (sex) em ansiedade (bai_sum) e depressão (bdi_sum). Observe os dados e escolha a estatística mais apropriada para esse tipo de dado.
+
+Ansiedade - ordinal
+Depressão - ordinal
+Sexo - nominal (2 categorias: masculino e feminino, independentes)
+A estatística mais adequada para essas variáveis é o t-teste.
+```{r}
+# Ansiedade
+
+## Primeiro passo: verificar se há homogeneidade de variâncias
+car::leveneTest(bai_sum ~ sex, dataset, center=mean)
+
+## Segundo passo: calcular o t-teste
+t.test(bai_sum ~ sex, dataset, var.equal = FALSE)
+
+
+## Terceiro passo: Cálculo do tamanho de efeito
+effsize::cohen.d(bai_sum ~ sex, data = dataset)
+
+# Depressão
+
+# Primeiro passo: verificar se há homogeneidade de variâncias
+car::leveneTest(bdi_sum ~ sex, dataset, center=mean)
+
+## Segundo passo: calcular o t-teste
+t.test(bdi_sum ~ sex, dataset, var.equal = TRUE)
+
+## Terceiro passo: Cálculo do tamanho de efeito
+effsize::cohen.d(bdi_sum ~ sex, data = dataset)
+```
+
+2.  Em relação ao exercício anterior, represente a ansiedade em tabela e a depressão em forma de gráfico.
+
+```{r}
+# Ansiedade
+tableby(sex ~ bai_sum,
+        test = FALSE,
+        data = dataset) %>%
+  summary(text = TRUE)
+
+# Depressão
+
+dataset %>% drop_na(sex) %>% 
+ggplot(aes(x=sex, y=bai_sum)) +
+  geom_bar(stat = "summary", 
+           fun = mean, 
+           color = 'black',
+           size = 1, 
+           na.rm = TRUE) +
+  labs(title = "DEPRESSÃO X SEXO",
+       x = "SEXO", 
+       y = "DEPRESSÃO",
+       caption = 'Estatística no R',
+       tag = "NEAP")
+```
+
+3.  Utilizando o mesmo dataframe, verifique se há diferenças entre países (country) em ansiedade (bai_sum) e depressão (bdi_sum). Observe os dados e escolha a estatística mais apropriada para esse tipo de dado.
+
+```{r}
+aov_ans_país <- aov(bai_sum ~ country, dataset)
+aov_dep_país <- aov(bdi_sum ~ country, dataset)
+
+# visualização dos resultados
+summary(aov_ans_país)
+summary(aov_dep_país)
+
+dataset %>% group_by(country) %>% summarise(ansiedade = mean(bai_sum, na.rm = TRUE),
+                                            depressão = mean(bdi_sum, na.rm = TRUE))
+                                    
+```
+
+4.  Em relação ao exercício anterior, represente a ansiedade em tabela e a depressão em forma de gráfico.
+
+5.  Execute o código abaixo para gerar o dataframe `df_ex` e realize uma ANOVA de medidas repetidas com esse dataframe.
+    Note que `df_ex` está no **formato amplo**.
+
+```{r}
+df_ex <- data.frame(id = paste("s",1:80,sep = ""),
+                    v1 = round(rnorm(n=80, mean = 20, sd = 3),digits = 2),
+                    v2 = round(rnorm(n=80, mean = 22, sd = 3),digits = 2),
+                    v3 = round(rnorm(n=80, mean = 26, sd = 3),digits = 2),
+                    v4 = round(rnorm(n=80, mean = 27, sd = 3),digits = 2),
+                    v5 = round(rnorm(n=80, mean = 27, sd = 3),digits = 2))
+```
+
+```{r}
+df_ex_longer <- df_ex %>% pivot_longer(cols = 2:6, # variáveis a serem unidas em uma só.  
+                           names_to = "medidas", # nome dessa nova variável 
+                           values_to = "valores") # valores correspondentes à nova variável 
+
+# transformar as variáveis id e tempo em fatores
+
+df_ex_longer$id <- factor(df_ex_longer$id)
+df_ex_longer$medidas <- factor(df_ex_longer$medidas)
+
+glimpse(df_ex_longer)
+
+mod_df_ex_longer <- ez::ezANOVA(data = df_ex_longer,    # banco de dados no formato longo
+                                dv = valores,             # variável dependente
+                                wid = id,                 # variável que identifica os sujeitos
+                                within = medidas,           # variável intra-sujeitos
+                                detailed = TRUE,          # saída mais detalhada
+                                type = 3)                 # tipo de soma dos quadrados, default 2
+```

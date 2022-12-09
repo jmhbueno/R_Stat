@@ -39,13 +39,25 @@ big_five_BR <- readRDS("big_five_BR.rds")
 # Análises dos efeitos do pertencimento a grupos
 
 Em muitas pesquisas, o interesse recai sobre os efeitos de grupo.
-Nesses casos, investiga-se se o fato das pessoas perteceram a um grupo produz algum efeito em alguma variável psicológica.
+Nesses casos, investiga-se se o fato das pessoas perteceram a um grupo produz efeito em alguma variável psicológica.
 Por exemplo, qual é o efeito de sexo (masculino ou feminino) na variável inteligência?
 Qual é o efeito de um programa de desenvolvimento da inteligência emocional (grupos controle e experimental) sobre a qualidade de vida?
 Qual o efeito do país de origem (A, B, C) no desempenho escolar?
 As análises estatísticas que normalmente são usadas nesses estudos são as seguintes:
 
-Teste t Análise de variância de duas vias (ANOVA) Análise de varância univariada Análise de variância multivariada (MANOVA) - Anova Fatorial Análise de Covariância (ANCOVA) Análise Multivariada de Covariância (MANCOVA) Análise de variância por medidas repetidas
+Teste t
+
+Análise de variância de duas vias (ANOVA)
+
+Análise de varância univariada
+
+Análise de variância multivariada (MANOVA)
+
+Anova Fatorial Análise de Covariância (ANCOVA)
+
+Análise Multivariada de Covariância (MANCOVA)
+
+Análise de variância por medidas repetidas
 
 # Teste t
 
@@ -95,9 +107,26 @@ O resultado foi estatísticamente significativo (p \< 0,05), indicando que a mé
 ### Representação Gráfica
 
 ```{r}
-big_five %>% mutate(Brasil = ifelse(país == "BR","BR","OU")) %>% 
+big_five %>% mutate(Brasil = ifelse(país == "BR","BR","OU")) %>% drop_na() %>%  
   ggplot(aes(x = Brasil, y = neur)) +
   geom_boxplot(color = "black", fill = "#74c69d") +
+  labs(title = "Média de Neuroticismo: Brasil x Mundo",
+       x = "País",
+       y = "Neuroticismo")
+
+## install.packages("pacman")
+pacman::p_load(ggpubr) # ggpubr é um pacote que adiciona algumas funções ao ggplot
+                       # com isso fica possível usar a função mean_ci
+                       # para calcular intervalo de confiança.
+
+# OBS: a função p_load do pacote pacman verifica se um pacote está instalado e instala se for necessário.
+
+### Barrinha de desvio padrão
+big_five %>% mutate(Brasil = ifelse(país == "BR","BR","OU")) %>% drop_na() %>% 
+ggplot(aes(x = Brasil, y = neur)) +
+  geom_point(stat = "summary", fun = "mean", na.rm = TRUE) +
+  geom_errorbar(stat = "summary", fun.data = "mean_sd", width = 0.3, na.rm = TRUE) + 
+  coord_cartesian(ylim = c(1,5)) +
   labs(title = "Média de Neuroticismo: Brasil x Mundo",
        x = "País",
        y = "Neuroticismo")
@@ -165,6 +194,8 @@ t_amab <- t.test(amab ~ gênero, big_five_BR, var.equal = TRUE)
 t_cons <- t.test(cons ~ gênero, big_five_BR, var.equal = TRUE)
 t_aber <- t.test(aber ~ gênero, big_five_BR, var.equal = TRUE)
 
+
+as.data.frame(t_aber$estimate[2])
 ```
 
 ### Apresentação dos resultados em uma tabela
@@ -186,7 +217,17 @@ data.frame(Variável = c("Extroversão","Neuroticismo","Amabilidade",
                  round(t_neur$p.value,digits = 3),
                  round(t_amab$p.value,digits = 3),
                  round(t_cons$p.value,digits = 3),
-                 round(t_aber$p.value,digits = 3))) %>% pander::pander()
+                 round(t_aber$p.value,digits = 3)),
+           M = c(round(t_extr$estimate[1],digits=2),
+                 round(t_neur$estimate[1],digits=2),
+                 round(t_amab$estimate[1],digits=2),
+                 round(t_cons$estimate[1],digits=2),
+                 round(t_aber$estimate[1],digits=2)),
+           "F"=c(round(t_extr$estimate[2],digits=2),
+                 round(t_neur$estimate[2],digits=2),
+                 round(t_amab$estimate[2],digits=2),
+                 round(t_cons$estimate[2],digits=2),
+                 round(t_aber$estimate[2],digits=2))) %>% pander()
 ```
 
 Juntamente com esse resultado, é necessário apresentar as estatísticas descritivas.
@@ -668,3 +709,4 @@ df_ex <- data.frame(id = paste("s",1:80,sep = ""),
                     v4 = round(rnorm(n=80, mean = 27, sd = 3),digits = 2),
                     v5 = round(rnorm(n=80, mean = 27, sd = 3),digits = 2))
 ```
+
